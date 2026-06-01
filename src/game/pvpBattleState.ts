@@ -164,8 +164,8 @@ export interface PvpMatchSummary {
   opponentDamageDealt: number
   myCardsPlayed: number
   opponentCardsPlayed: number
-  goldEarned: number
   livesRemaining: number
+  livesChange: number
 }
 
 export interface SpectatorBattleView {
@@ -527,8 +527,8 @@ export function buildSpectatorBattleView(
 export function buildPvpMatchSummary(
   state: PvpBattleState,
   myPlayerId: string,
-  goldEarned: number,
   livesRemaining: number,
+  livesChange: number,
 ): PvpMatchSummary | null {
   const normalized = normalizePvpBattleState(state)
   if (!normalized.winnerSlot) return null
@@ -551,8 +551,8 @@ export function buildPvpMatchSummary(
     opponentDamageDealt: oppStats.damageDealt,
     myCardsPlayed: myStats.cardsPlayed,
     opponentCardsPlayed: oppStats.cardsPlayed,
-    goldEarned,
     livesRemaining,
+    livesChange,
   }
 }
 

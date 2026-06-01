@@ -39,7 +39,7 @@ import {
   isValidLobbyCode,
   leaveLobbySmart,
 } from './services/lobbyService'
-import { PVP_BYE_GOLD, PVP_LOSS_GOLD, PVP_WIN_GOLD } from './game/arenaConstants'
+import { PVP_BYE_GOLD } from './game/arenaConstants'
 import {
   clearPersistedSession,
   loadPersistedSession,
@@ -48,7 +48,12 @@ import {
   type PersistedOnlineSession,
 } from './services/persistedSessionService'
 import { rejoinFromPersisted } from './services/reconnectService'
-import { clearOnlineRun, setLastRoundGold } from './services/onlineRunService'
+import {
+  clearOnlineRun,
+  loadOnlineRun,
+  preparePostMatchRewards,
+  setLastRoundGold,
+} from './services/onlineRunService'
 import type { OnlineLobbySession } from './types/lobby'
 import type { OnlineMatchSession, PvpMatch } from './types/match'
 import type { PlayerAssignment } from './services/reconnectService'
@@ -336,11 +341,15 @@ function App() {
   const handleMatchComplete = useCallback(
     (match: PvpMatch) => {
       if (onlineSession) {
-        const won = match.winnerPlayerId === onlineSession.playerId
-        setLastRoundGold(
+        const local = loadOnlineRun(
           onlineSession.lobbyId,
           onlineSession.sessionId,
-          won ? PVP_WIN_GOLD : PVP_LOSS_GOLD,
+        )
+        preparePostMatchRewards(
+          onlineSession.lobbyId,
+          onlineSession.sessionId,
+          match.id,
+          local.deck,
         )
       }
       setCompletedMatch(match)

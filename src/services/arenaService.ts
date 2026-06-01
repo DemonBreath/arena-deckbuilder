@@ -1,5 +1,5 @@
 import { getSupabaseClient } from '../lib/supabaseClient'
-import { PVP_BYE_GOLD, PVP_LOSS_GOLD, PVP_WIN_GOLD } from '../game/arenaConstants'
+import { PVP_BYE_GOLD } from '../game/arenaConstants'
 import { fetchLobby, fetchLobbyPlayers } from './lobbyService'
 import type { Lobby, LobbyPlayer } from '../types/lobby'
 import type { PvpMatch } from '../types/match'
@@ -36,15 +36,12 @@ export async function applyMatchArenaProgression(
   const loser = players.find((p) => p.id === loserId)
   if (!winner || !loser) return
 
-  const winnerGold = winner.gold + PVP_WIN_GOLD
   const loserLives = Math.max(0, loser.lives - 1)
-  const loserGold = loser.gold + PVP_LOSS_GOLD
   const loserEliminated = loserLives <= 0
 
   await supabase
     .from('lobby_players')
     .update({
-      gold: winnerGold,
       opponents_defeated: winner.opponentsDefeated + 1,
       ready: false,
       shop_done: false,
@@ -54,7 +51,6 @@ export async function applyMatchArenaProgression(
   await supabase
     .from('lobby_players')
     .update({
-      gold: loserGold,
       lives: loserLives,
       eliminated: loserEliminated,
       ready: false,
