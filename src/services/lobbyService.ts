@@ -1,3 +1,4 @@
+import { subscribePostgresChanges } from '../lib/realtimeSubscription'
 import { getSupabaseClient, isSupabaseConfigured } from '../lib/supabaseClient'
 import { STARTER_DECK, type CardId } from '../game/cardDatabase'
 import type { RelicId } from '../game/relicDatabase'
@@ -298,25 +299,15 @@ export function subscribeToLobbyPlayers(
 
   void refresh()
 
-  const channel = supabase
-    .channel(`lobby-players:${lobbyId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'lobby_players',
-        filter: `lobby_id=eq.${lobbyId}`,
-      },
-      () => {
+  return subscribePostgresChanges(supabase, 'lobby-players', lobbyId, [
+    {
+      table: 'lobby_players',
+      filter: `lobby_id=eq.${lobbyId}`,
+      callback: () => {
         void refresh()
       },
-    )
-    .subscribe()
-
-  return () => {
-    void supabase.removeChannel(channel)
-  }
+    },
+  ])
 }
 
 export function subscribeToLobby(
@@ -336,25 +327,15 @@ export function subscribeToLobby(
 
   void refresh()
 
-  const channel = supabase
-    .channel(`lobby:${lobbyId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'lobbies',
-        filter: `id=eq.${lobbyId}`,
-      },
-      () => {
+  return subscribePostgresChanges(supabase, 'lobby', lobbyId, [
+    {
+      table: 'lobbies',
+      filter: `id=eq.${lobbyId}`,
+      callback: () => {
         void refresh()
       },
-    )
-    .subscribe()
-
-  return () => {
-    void supabase.removeChannel(channel)
-  }
+    },
+  ])
 }
 
 export async function touchPlayerPresence(playerId: string): Promise<void> {

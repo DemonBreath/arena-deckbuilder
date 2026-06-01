@@ -1,3 +1,4 @@
+import { subscribePostgresChanges } from '../lib/realtimeSubscription'
 import { getSupabaseClient } from '../lib/supabaseClient'
 import { grantByeGold } from './arenaService'
 import { fetchLobby, fetchLobbyPlayers } from './lobbyService'
@@ -303,25 +304,15 @@ export function subscribeToMatch(
 
   void refresh()
 
-  const channel = supabase
-    .channel(`match:${matchId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'matches',
-        filter: `id=eq.${matchId}`,
-      },
-      () => {
+  return subscribePostgresChanges(supabase, 'match', matchId, [
+    {
+      table: 'matches',
+      filter: `id=eq.${matchId}`,
+      callback: () => {
         void refresh()
       },
-    )
-    .subscribe()
-
-  return () => {
-    void supabase.removeChannel(channel)
-  }
+    },
+  ])
 }
 
 export function subscribeToLobbyMatches(
@@ -330,33 +321,18 @@ export function subscribeToLobbyMatches(
 ): () => void {
   const supabase = getSupabaseClient()
 
-  const channel = supabase
-    .channel(`lobby-matches:${lobbyId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'matches',
-        filter: `lobby_id=eq.${lobbyId}`,
-      },
-      () => onChange(),
-    )
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'lobby_pairing_byes',
-        filter: `lobby_id=eq.${lobbyId}`,
-      },
-      () => onChange(),
-    )
-    .subscribe()
-
-  return () => {
-    void supabase.removeChannel(channel)
-  }
+  return subscribePostgresChanges(supabase, 'lobby-matches', lobbyId, [
+    {
+      table: 'matches',
+      filter: `lobby_id=eq.${lobbyId}`,
+      callback: onChange,
+    },
+    {
+      table: 'lobby_pairing_byes',
+      filter: `lobby_id=eq.${lobbyId}`,
+      callback: onChange,
+    },
+  ])
 }
 
 export async function resolvePlayerAssignment(

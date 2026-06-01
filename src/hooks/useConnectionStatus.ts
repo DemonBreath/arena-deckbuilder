@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createRealtimeChannelName } from '../lib/realtimeSubscription'
 import { getSupabaseClient, isSupabaseConfigured } from '../lib/supabaseClient'
 
 export type ConnectionStatus = 'connected' | 'reconnecting' | 'disconnected'
@@ -31,7 +32,9 @@ export function useConnectionStatus(
     }
 
     const supabase = getSupabaseClient()
-    const channel = supabase.channel(`connection-monitor:${lobbyId}`)
+    const channel = supabase.channel(
+      createRealtimeChannelName('connection-monitor', lobbyId),
+    )
 
     channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
