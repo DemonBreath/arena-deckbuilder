@@ -9,7 +9,7 @@ import {
   generatePostMatchRewardOffers,
   type PostMatchRewardOffer,
 } from '../game/postMatchRewards'
-import { PVP_SHOP_CARD_POOL } from '../game/pvpBattleState'
+import { generateClassCardOffers } from '../game/classCardPools'
 import type { RelicId } from '../game/relicDatabase'
 
 export interface OnlineRunState {
@@ -42,12 +42,8 @@ function storageKey(lobbyId: string, sessionId: string): string {
   return `arena-online-run:${lobbyId}:${sessionId}`
 }
 
-function generateShopOffers(): CardId[] {
-  const pool = PVP_SHOP_CARD_POOL
-  return Array.from({ length: 3 }, () => {
-    const index = Math.floor(Math.random() * pool.length)
-    return pool[index]
-  })
+function generateShopOffers(classId: ClassId): CardId[] {
+  return generateClassCardOffers(classId, 3)
 }
 
 function normalizeRunState(parsed: Partial<OnlineRunState>): OnlineRunState {
@@ -63,7 +59,7 @@ function normalizeRunState(parsed: Partial<OnlineRunState>): OnlineRunState {
     shopOffers:
       Array.isArray(parsed.shopOffers) && parsed.shopOffers.length > 0
         ? parsed.shopOffers
-        : generateShopOffers(),
+        : generateShopOffers(classId),
     postMatchOffers: Array.isArray(parsed.postMatchOffers)
       ? parsed.postMatchOffers
       : null,
@@ -95,12 +91,13 @@ export function loadOnlineRun(
     /* ignore corrupt storage */
   }
 
+  const fallbackClassId = parseClassId(undefined)
   return {
-    classId: parseClassId(undefined),
+    classId: fallbackClassId,
     deck: [...STARTER_DECK],
     relics: [],
     lastReward: 0,
-    shopOffers: generateShopOffers(),
+    shopOffers: generateShopOffers(fallbackClassId),
     postMatchOffers: null,
     postMatchRewardClaimed: false,
     postMatchForMatchId: null,
@@ -123,7 +120,7 @@ export function clearOnlineRun(lobbyId: string, sessionId: string): void {
 export function refreshShopOffers(state: OnlineRunState): OnlineRunState {
   return {
     ...state,
-    shopOffers: generateShopOffers(),
+    shopOffers: generateShopOffers(state.classId),
   }
 }
 
@@ -138,7 +135,7 @@ export function initializeOnlineRunForClass(
     deck: getClassStarterDeck(classId),
     relics: [],
     lastReward: 0,
-    shopOffers: generateShopOffers(),
+    shopOffers: generateShopOffers(classId),
     postMatchOffers: null,
     postMatchRewardClaimed: false,
     postMatchForMatchId: null,
@@ -166,7 +163,7 @@ export function preparePostMatchRewards(
   const next: OnlineRunState = {
     ...state,
     deck,
-    postMatchOffers: generatePostMatchRewardOffers(deck),
+    postMatchOffers: generatePostMatchRewardOffers(deck, state.classId),
     postMatchRewardClaimed: false,
     postMatchForMatchId: matchId,
     lastRewardSummary: null,

@@ -258,6 +258,7 @@ export function MatchResultsView({
               <PostMatchRewardButton
                 key={`${offer.kind}-${index}`}
                 offer={offer}
+                viewerClassId={session.classId}
                 disabled={claimPending}
                 onClick={() => void handlePickReward(index)}
               />

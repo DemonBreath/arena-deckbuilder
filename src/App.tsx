@@ -681,7 +681,7 @@ function App() {
             Enter the arena, defeat every opponent, and claim the daily crown.
           </p>
           <p className="subtitle">
-            Milestone 20 — class balance & identity UI
+            Milestone 21 — class-specific card pools
           </p>
 
           {onlineAvailable && pendingRejoin && !onlineSession && (

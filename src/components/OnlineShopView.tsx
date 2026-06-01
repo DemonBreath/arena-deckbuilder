@@ -237,6 +237,8 @@ export function OnlineShopView({ session, onContinue }: OnlineShopViewProps) {
 
               price={shopPrice}
 
+              viewerClassId={session.classId}
+
               disabled={serverGold < shopPrice || pending || shopDone}
 
               onClick={() => void buyCard(index)}

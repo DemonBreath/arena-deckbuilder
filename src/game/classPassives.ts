@@ -1,4 +1,5 @@
 import type { CardId } from './cardDatabase'
+import { cardCountsAsAttack, cardCountsAsStrike } from './cardEffects'
 import {
   getClassDefinition,
   type ClassId,
@@ -39,16 +40,11 @@ export interface ClassPostCardResult {
 }
 
 function isAttackCard(cardId: CardId): boolean {
-  const card = cardId
-  return (
-    card === 'strike' ||
-    card === 'strike_plus' ||
-    card === 'heavy_strike'
-  )
+  return cardCountsAsAttack(cardId)
 }
 
 function isStrikeCard(cardId: CardId): boolean {
-  return cardId === 'strike' || cardId === 'strike_plus' || cardId === 'heavy_strike'
+  return cardCountsAsStrike(cardId)
 }
 
 function passiveKind(classId: ClassId): ClassPassiveKind {

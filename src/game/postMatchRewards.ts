@@ -1,10 +1,8 @@
 import { getCard, type CardId } from './cardDatabase'
 import { PVP_POST_MATCH_GOLD } from './arenaConstants'
-import {
-  isPvpAllowedCard,
-  PVP_SHOP_CARD_POOL,
-  sanitizePvpDeck,
-} from './pvpBattleState'
+import { rollClassOfferCard } from './classCardPools'
+import type { ClassId } from './classDatabase'
+import { isPvpAllowedCard, sanitizePvpDeck } from './pvpBattleState'
 
 export type PostMatchRewardKind =
   | 'add_card'
@@ -46,9 +44,8 @@ function shuffleKinds(): PostMatchRewardKind[] {
   return kinds.slice(0, 3)
 }
 
-function pickAddCardOffer(): PostMatchRewardOffer {
-  const pool = PVP_SHOP_CARD_POOL
-  const cardId = pool[Math.floor(Math.random() * pool.length)]
+function pickAddCardOffer(classId: ClassId): PostMatchRewardOffer {
+  const cardId = rollClassOfferCard(classId)
   const card = getCard(cardId)
   return {
     kind: 'add_card',
@@ -105,14 +102,15 @@ function pickGoldOffer(): PostMatchRewardOffer {
 function buildOfferForKind(
   kind: PostMatchRewardKind,
   deck: CardId[],
+  classId: ClassId,
 ): PostMatchRewardOffer {
   switch (kind) {
     case 'add_card':
-      return pickAddCardOffer()
+      return pickAddCardOffer(classId)
     case 'upgrade_card':
-      return pickUpgradeOffer(deck) ?? pickAddCardOffer()
+      return pickUpgradeOffer(deck) ?? pickAddCardOffer(classId)
     case 'remove_card':
-      return pickRemoveOffer(deck) ?? pickAddCardOffer()
+      return pickRemoveOffer(deck) ?? pickAddCardOffer(classId)
     case 'gain_gold':
       return pickGoldOffer()
     default:
@@ -121,10 +119,13 @@ function buildOfferForKind(
 }
 
 /** Three fair reward options — same categories and power for winners and losers. */
-export function generatePostMatchRewardOffers(deck: CardId[]): PostMatchRewardOffer[] {
+export function generatePostMatchRewardOffers(
+  deck: CardId[],
+  classId: ClassId,
+): PostMatchRewardOffer[] {
   const sanitized = sanitizePvpDeck(deck)
   const kinds = shuffleKinds()
-  return kinds.map((kind) => buildOfferForKind(kind, sanitized))
+  return kinds.map((kind) => buildOfferForKind(kind, sanitized, classId))
 }
 
 export function applyPostMatchReward(

@@ -118,6 +118,7 @@ export function BattleView({
                     <CardButton
                       key={`${cardId}-${index}`}
                       cardId={cardId}
+                      viewerClassId={state.classId}
                       disabled={disabled}
                       onClick={() => onPlayCard(index)}
                     />

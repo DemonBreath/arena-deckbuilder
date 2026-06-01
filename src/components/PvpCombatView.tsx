@@ -207,6 +207,7 @@ export function PvpCombatView({
                     <CardButton
                       key={`${cardId}-${index}`}
                       cardId={cardId}
+                      viewerClassId={view.me.classId}
                       disabled={disabled}
                       className={highlighted ? 'card-button--played' : undefined}
                       onClick={() => handlePlayCard(index)}

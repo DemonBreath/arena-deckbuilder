@@ -349,6 +349,34 @@ body {
   font-weight: 600;
 }
 
+.card-pool-badge {
+  display: inline-block;
+  margin-bottom: 0.2rem;
+  padding: 0.12rem 0.4rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 4px;
+  background: #3a3558;
+  color: #bb8fce;
+}
+
+.card-pool-badge--class {
+  background: #2a3550;
+  color: #85c1e9;
+}
+
+.card-pool-badge--rare {
+  background: #3d2e18;
+  color: #f0c96a;
+}
+
+.card-pool-badge--foreign {
+  opacity: 0.75;
+  color: #9aa5c4;
+}
+
 .relics-panel {
   background: #1a1f2e;
   border: 1px solid #3d4a6b;

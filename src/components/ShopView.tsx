@@ -40,6 +40,7 @@ export function ShopView({ state, onBuyCard, onNextBattle }: ShopViewProps) {
                     variant="shop"
                     showPrice
                     price={shopPrice}
+                    viewerClassId={state.classId}
                     disabled={!canAfford}
                     onClick={() => onBuyCard(index)}
                   />

@@ -1,15 +1,18 @@
 import { getCard } from '../game/cardDatabase'
+import type { ClassId } from '../game/classDatabase'
 import type { PostMatchRewardOffer } from '../game/postMatchRewards'
 import { CardButton } from './CardButton'
 
 interface PostMatchRewardButtonProps {
   offer: PostMatchRewardOffer
+  viewerClassId: ClassId
   disabled?: boolean
   onClick: () => void
 }
 
 export function PostMatchRewardButton({
   offer,
+  viewerClassId,
   disabled = false,
   onClick,
 }: PostMatchRewardButtonProps) {
@@ -17,7 +20,13 @@ export function PostMatchRewardButton({
     return (
       <div className="post-match-reward-option">
         <span className="post-match-reward-option__type">Add a card</span>
-        <CardButton cardId={offer.cardId} variant="shop" onClick={onClick} disabled={disabled} />
+        <CardButton
+          cardId={offer.cardId}
+          variant="shop"
+          viewerClassId={viewerClassId}
+          onClick={onClick}
+          disabled={disabled}
+        />
       </div>
     )
   }

@@ -54,6 +54,7 @@ export function RewardView({
                     key={`${cardId}-${index}`}
                     cardId={cardId}
                     variant="shop"
+                    viewerClassId={state.classId}
                     onClick={() => onPickCard(index)}
                   />
                 ))}

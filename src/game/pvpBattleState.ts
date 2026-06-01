@@ -1,4 +1,6 @@
 import { getCard, STARTER_DECK, type CardId } from './cardDatabase'
+import { resolveCardEffect, cardCountsAsAttack } from './cardEffects'
+import { getAllClassCardIds } from './classCardPools'
 import {
   applyClassPostCardEffects,
   formatClassPassiveLog,
@@ -45,8 +47,13 @@ export function getEmoteLabel(id: PvpEmoteId): string {
   return PVP_EMOTES.find((e) => e.id === id)?.label ?? id
 }
 
-export function isPvpAllowedCard(cardId: CardId): cardId is PvpCardId {
-  return (PVP_ALLOWED_CARDS as readonly string[]).includes(cardId)
+const PVP_CLASS_CARD_IDS = getAllClassCardIds()
+
+export function isPvpAllowedCard(cardId: CardId): boolean {
+  return (
+    (PVP_ALLOWED_CARDS as readonly string[]).includes(cardId) ||
+    PVP_CLASS_CARD_IDS.includes(cardId)
+  )
 }
 
 const PVP_DECK_PAD_DEFAULTS: PvpCardId[] = [
@@ -57,11 +64,14 @@ const PVP_DECK_PAD_DEFAULTS: PvpCardId[] = [
   'guard_plus',
 ]
 
-/** Cards that can appear in the online shop (PvP-legal upgrades). */
+/** Shared upgrades still used as fallback pool reference. */
 export const PVP_SHOP_CARD_POOL: readonly CardId[] = [
   'strike_plus',
   'guard_plus',
   'heavy_strike',
+  'quick_jab',
+  'shield_bash',
+  'double_guard',
 ] as const
 
 /** Strip non-PvP cards from a deck saved during shop rounds. */
@@ -377,53 +387,51 @@ function applyDamageToTarget(
 
 function resolvePvpCardPlay(
   cardId: CardId,
-  attackerBlock: number,
+  attacker: PvpPlayerBattleState,
   targetHp: number,
   targetBlock: number,
 ): {
   targetHp: number
   targetBlock: number
-  attackerBlock: number
+  attacker: PvpPlayerBattleState
   logLine: string
   damageDealt: number
   blockGained: number
   effectKind: 'damage' | 'block' | 'none'
+  extraDraws: number
 } {
-  const card = getCard(cardId)
+  const effect = resolveCardEffect({
+    cardId,
+    playerHp: attacker.hp,
+    playerMaxHp: attacker.maxHp,
+    playerBlock: attacker.block,
+    playerEnergy: attacker.energy,
+    enemyHp: targetHp,
+    enemyBlock: targetBlock,
+    relics: [],
+  })
 
-  if (card.damage !== undefined) {
-    const result = applyDamageToTarget(targetHp, targetBlock, card.damage)
-    return {
-      targetHp: result.hp,
-      targetBlock: result.block,
-      attackerBlock,
-      damageDealt: result.damageDealt,
-      blockGained: 0,
-      effectKind: 'damage',
-      logLine: `Played ${card.name} — dealt ${result.damageDealt} damage.`,
-    }
-  }
-
-  if (card.block !== undefined) {
-    return {
-      targetHp,
-      targetBlock,
-      attackerBlock: attackerBlock + card.block,
-      damageDealt: 0,
-      blockGained: card.block,
-      effectKind: 'block',
-      logLine: `Played ${card.name} — gained ${card.block} block.`,
-    }
-  }
+  const effectKind: 'damage' | 'block' | 'none' =
+    effect.damageDealt > 0
+      ? 'damage'
+      : effect.blockGained > 0
+        ? 'block'
+        : 'none'
 
   return {
-    targetHp,
-    targetBlock,
-    attackerBlock,
-    damageDealt: 0,
-    blockGained: 0,
-    effectKind: 'none',
-    logLine: `Played ${card.name} — no effect.`,
+    targetHp: effect.enemyHp,
+    targetBlock: effect.enemyBlock,
+    attacker: {
+      ...attacker,
+      hp: effect.playerHp,
+      block: effect.playerBlock,
+      energy: effect.playerEnergy,
+    },
+    logLine: effect.logLine,
+    damageDealt: effect.damageDealt,
+    blockGained: effect.blockGained,
+    effectKind,
+    extraDraws: effect.extraDraws,
   }
 }
 
@@ -718,9 +726,14 @@ function applyPlayCard(
     handIndex,
   })
 
+  let effectAttacker: PvpPlayerBattleState = {
+    ...attacker,
+    energy,
+  }
+
   const result = resolvePvpCardPlay(
     cardId,
-    attacker.block,
+    effectAttacker,
     defender.hp,
     defender.block,
   )
@@ -729,7 +742,7 @@ function applyPlayCard(
   let targetBlock = result.targetBlock
   let totalDamage = result.damageDealt
 
-  if (bonusDamage > 0 && card.damage !== undefined) {
+  if (bonusDamage > 0 && cardCountsAsAttack(cardId)) {
     const extra = applyDamageToTarget(targetHp, targetBlock, bonusDamage)
     targetHp = extra.hp
     targetBlock = extra.block
@@ -737,11 +750,9 @@ function applyPlayCard(
   }
 
   let updatedAttacker: PvpPlayerBattleState = {
-    ...attacker,
+    ...result.attacker,
     hand,
     discardPile,
-    energy,
-    block: result.attackerBlock,
     strikesPlayedThisTurn: shouldIncrementStrikeCounter(cardId)
       ? attacker.strikesPlayedThisTurn + 1
       : attacker.strikesPlayedThisTurn,
@@ -758,6 +769,13 @@ function applyPlayCard(
     damageDealt: totalDamage,
   })
   updatedAttacker = { ...updatedAttacker, hp: postCard.hp }
+
+  if (result.extraDraws > 0) {
+    updatedAttacker = drawCardsForPlayer(
+      updatedAttacker,
+      updatedAttacker.hand.length + result.extraDraws,
+    )
+  }
 
   const updatedDefender: PvpPlayerBattleState = {
     ...defender,

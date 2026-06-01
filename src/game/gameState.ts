@@ -1,9 +1,6 @@
-import {
-  SHOP_CARD_POOL,
-  REWARD_CARD_POOL,
-  getCard,
-  type CardId,
-} from './cardDatabase'
+import { getCard, type CardId } from './cardDatabase'
+import { resolveCardEffect, cardCountsAsAttack } from './cardEffects'
+import { generateClassCardOffers } from './classCardPools'
 import {
   applyClassPostCardEffects,
   formatClassPassiveLog,
@@ -42,7 +39,6 @@ import {
   getWinGoldAmount,
   getLossGoldAmount,
   getShopCardPrice,
-  getAttackDamageBonus,
   getBattleStartBlock,
   generateRelicOffers,
   hasRelic,
@@ -404,18 +400,12 @@ function setupBattle(state: GameState): GameState {
   return applyIronCharmBattleStart(next)
 }
 
-function generateShopOffers(): CardId[] {
-  return Array.from({ length: 3 }, () => {
-    const index = Math.floor(Math.random() * SHOP_CARD_POOL.length)
-    return SHOP_CARD_POOL[index]
-  })
+function generateShopOffers(classId: ClassId): CardId[] {
+  return generateClassCardOffers(classId, 3)
 }
 
-function generateCardRewards(): CardId[] {
-  return Array.from({ length: 3 }, () => {
-    const index = Math.floor(Math.random() * REWARD_CARD_POOL.length)
-    return REWARD_CARD_POOL[index]
-  })
+function generateCardRewards(classId: ClassId): CardId[] {
+  return generateClassCardOffers(classId, 3)
 }
 
 function isRelicRewardForDefeats(defeatedCount: number): boolean {
@@ -628,7 +618,7 @@ function resolveBattleEnd(
     const rewardRelics = useRelicReward
       ? generateRelicOffers(state.relics)
       : []
-    const rewardCards = useRelicReward ? [] : generateCardRewards()
+    const rewardCards = useRelicReward ? [] : generateCardRewards(state.classId)
     const rewardType: RewardType = useRelicReward
       ? rewardRelics.length > 0
         ? 'relics'
@@ -701,71 +691,6 @@ function resolveBattleEnd(
   }
 }
 
-interface CardPlayResult {
-  enemyHp: number
-  enemyBlock: number
-  block: number
-  logLine: string
-}
-
-function resolveCardPlay(
-  cardId: CardId,
-  enemyHp: number,
-  enemyBlock: number,
-  block: number,
-  relics: RelicId[],
-): CardPlayResult {
-  const card = getCard(cardId)
-  const attackBonus = getAttackDamageBonus(relics)
-
-  if (card.special === 'shield_bash') {
-    const rawDamage = block
-    const result = applyDamageToEnemy(enemyHp, enemyBlock, rawDamage)
-    return {
-      enemyHp: result.enemyHp,
-      enemyBlock: result.enemyBlock,
-      block,
-      logLine: `Played ${card.name} — dealt ${result.damageDealt} damage (equal to block).`,
-    }
-  }
-
-  if (card.special === 'double_guard') {
-    const gained = 10
-    return {
-      enemyHp,
-      enemyBlock,
-      block: block + gained,
-      logLine: `Played ${card.name} — gained ${gained} block (5 + 5).`,
-    }
-  }
-
-  let nextEnemyHp = enemyHp
-  let nextEnemyBlock = enemyBlock
-  let nextBlock = block
-  const parts: string[] = []
-
-  if (card.damage !== undefined) {
-    const rawDamage = card.damage + attackBonus
-    const result = applyDamageToEnemy(nextEnemyHp, nextEnemyBlock, rawDamage)
-    nextEnemyHp = result.enemyHp
-    nextEnemyBlock = result.enemyBlock
-    const bonusText =
-      attackBonus > 0 ? ` (+${attackBonus} Sharp Stone)` : ''
-    parts.push(`dealt ${result.damageDealt} damage${bonusText}`)
-  }
-  if (card.block !== undefined) {
-    nextBlock += card.block
-    parts.push(`gained ${card.block} block`)
-  }
-
-  const effectText = parts.length > 0 ? parts.join(', ') : 'no effect'
-  return {
-    enemyHp: nextEnemyHp,
-    enemyBlock: nextEnemyBlock,
-    block: nextBlock,
-    logLine: `Played ${card.name} — ${effectText}.`,
-  }
-}
 
 function discardHand(state: GameState): GameState {
   if (state.hand.length === 0) return state
@@ -898,30 +823,37 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         handIndex: action.handIndex,
       })
 
-      let { enemyHp, enemyBlock, block, logLine } = resolveCardPlay(
+      const effect = resolveCardEffect({
         cardId,
-        state.enemyHp,
-        state.enemyBlock,
-        state.block,
-        state.relics,
-      )
+        playerHp: state.playerHp,
+        playerMaxHp: getClassMaxHp(state.classId),
+        playerBlock: state.block,
+        playerEnergy: energy,
+        enemyHp: state.enemyHp,
+        enemyBlock: state.enemyBlock,
+        relics: state.relics,
+      })
 
-      if (bonusDamage > 0 && card.damage !== undefined) {
+      let enemyHp = effect.enemyHp
+      let enemyBlock = effect.enemyBlock
+      let block = effect.playerBlock
+      let playerHp = effect.playerHp
+      let energyAfter = effect.playerEnergy
+      let logLine = effect.logLine
+      let damageDealt = effect.damageDealt
+
+      if (bonusDamage > 0 && cardCountsAsAttack(cardId)) {
         const extra = applyDamageToEnemy(enemyHp, enemyBlock, bonusDamage)
         enemyHp = extra.enemyHp
         enemyBlock = extra.enemyBlock
+        damageDealt += extra.damageDealt
         logLine += ` (+${bonusDamage} class bonus)`
       }
-
-      const damageDealt =
-        card.damage !== undefined
-          ? Math.max(0, state.enemyHp - enemyHp)
-          : 0
 
       const postCard = applyClassPostCardEffects({
         classId: state.classId,
         cardId,
-        currentHp: state.playerHp,
+        currentHp: playerHp,
         maxHp: getClassMaxHp(state.classId),
         damageDealt,
       })
@@ -934,7 +866,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           enemyHp,
           enemyBlock,
           block,
-          energy,
+          energy: energyAfter,
           playerHp: postCard.hp,
           strikesPlayedThisTurn: shouldIncrementStrikeCounter(cardId)
             ? state.strikesPlayedThisTurn + 1
@@ -946,6 +878,10 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         },
         logLine + postCard.logSuffix,
       )
+
+      if (effect.extraDraws > 0) {
+        next = drawCards(next, next.hand.length + effect.extraDraws)
+      }
 
       if (enemyHp <= 0) {
         return resolveBattleEnd({ ...next, enemyHp: 0 }, true)
@@ -1022,7 +958,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         syncRoster({
           ...state,
           screen: 'shop',
-          shopOffers: generateShopOffers(),
+          shopOffers: generateShopOffers(state.classId),
           rewardType: 'none',
           rewardCards: [],
           rewardRelics: [],
