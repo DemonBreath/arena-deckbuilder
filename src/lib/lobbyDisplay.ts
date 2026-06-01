@@ -17,6 +17,7 @@ export function getLobbyDisplayStatus(lobby: Lobby | null): LobbyDisplayStatus {
     case 'starting':
     case 'in_match':
     case 'shop':
+    case 'arena_draft':
       return 'in_progress'
     default:
       return 'closed'
@@ -43,6 +44,7 @@ export function isLobbyRunInProgress(status: LobbyStatus | undefined): boolean {
     status === 'starting' ||
     status === 'in_match' ||
     status === 'shop' ||
+    status === 'arena_draft' ||
     status === 'finished'
   )
 }

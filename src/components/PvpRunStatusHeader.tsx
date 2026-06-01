@@ -1,4 +1,5 @@
 import type { OnlineRunStatus } from '../hooks/useOnlineRunStatus'
+import { ArenaPhaseBanner } from './ArenaPhaseBanner'
 
 interface PvpRunStatusHeaderProps {
   status: OnlineRunStatus
@@ -33,12 +34,18 @@ export function PvpRunStatusHeader({ status, title }: PvpRunStatusHeaderProps) {
           <strong className="pvp-run-stat__value">{status.opponentsDefeated}</strong>
         </div>
         <div className="pvp-run-stat">
-          <span className="pvp-run-stat__label">Active</span>
+          <span className="pvp-run-stat__label">Remaining</span>
           <strong className="pvp-run-stat__value">
             {status.activePlayersRemaining}
           </strong>
         </div>
       </div>
+      <ArenaPhaseBanner
+        phase={status.arenaPhase}
+        activePlayersRemaining={status.activePlayersRemaining}
+        finalDuelSeriesLabel={status.finalDuelSeriesLabel}
+        compact
+      />
     </header>
   )
 }

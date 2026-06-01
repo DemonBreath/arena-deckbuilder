@@ -1,4 +1,3 @@
-import { getClassDefinition } from '../game/classDatabase'
 import type { SpectatorBattleView } from '../game/pvpBattleState'
 import {
   useOnlineRunStatus,
@@ -8,6 +7,7 @@ import { BattleLogPanel } from './BattleLogPanel'
 import { FloatingCombatText } from './FloatingCombatText'
 import { PvpRunStatusHeader } from './PvpRunStatusHeader'
 import { PvpTurnTimer } from './PvpTurnTimer'
+import { ClassMechanicMeter } from './ClassMechanicMeter'
 
 interface SpectatorCombatViewProps {
   session: OnlineRunSession
@@ -78,7 +78,7 @@ export function SpectatorCombatView({
             <section className="fighter-panel fighter-panel--enemy">
               <h3>{view.player1.championName}</h3>
               <p className="fighter-archetype">
-                {getClassDefinition(view.player1.classId).name}
+                {view.player1.classTitle}
               </p>
               <p className="hp-bar">
                 <span>HP</span>
@@ -86,6 +86,11 @@ export function SpectatorCombatView({
                   {Math.max(0, view.player1.hp)} / {view.player1.maxHp}
                 </strong>
               </p>
+              <ClassMechanicMeter
+                classId={view.player1.classId}
+                meter={view.player1.mechanic}
+                compact
+              />
               <p className="stat-line">Block: {view.player1.block}</p>
               <p className="stat-line">
                 Energy: {view.player1.energy} / {view.player1.maxEnergy}
@@ -96,7 +101,7 @@ export function SpectatorCombatView({
             <section className="fighter-panel fighter-panel--player">
               <h3>{view.player2.championName}</h3>
               <p className="fighter-archetype">
-                {getClassDefinition(view.player2.classId).name}
+                {view.player2.classTitle}
               </p>
               <p className="hp-bar">
                 <span>HP</span>
@@ -104,6 +109,11 @@ export function SpectatorCombatView({
                   {Math.max(0, view.player2.hp)} / {view.player2.maxHp}
                 </strong>
               </p>
+              <ClassMechanicMeter
+                classId={view.player2.classId}
+                meter={view.player2.mechanic}
+                compact
+              />
               <p className="stat-line">Block: {view.player2.block}</p>
               <p className="stat-line">
                 Energy: {view.player2.energy} / {view.player2.maxEnergy}

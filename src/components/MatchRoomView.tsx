@@ -1,7 +1,11 @@
+import { useEffect, useMemo, useState } from 'react'
+import { buildMatchIntroductionSnapshot } from '../game/scoutingIntel'
 import { useOnlineConnectivity } from '../hooks/useOnlineConnectivity'
-import { usePvpBattle } from '../hooks/usePvpBattle'
 import { useOnlineRunStatus } from '../hooks/useOnlineRunStatus'
+import { usePvpBattle } from '../hooks/usePvpBattle'
+import { loadOnlineRun } from '../services/onlineRunService'
 import { ConnectionStatusBanner } from './ConnectionStatusBanner'
+import { MatchIntroductionScreen } from './MatchIntroductionScreen'
 import { OnlineErrorPanel } from './OnlineErrorPanel'
 import type { OnlineMatchSession, PvpMatch } from '../types/match'
 import { PvpCombatView } from './PvpCombatView'
@@ -40,6 +44,12 @@ export function MatchRoomView({
     session.playerId,
     session.lobbyId,
   )
+  const [introAcknowledged, setIntroAcknowledged] = useState(false)
+
+  useEffect(() => {
+    setIntroAcknowledged(false)
+  }, [session.matchId])
+
   const {
     match,
     battleView,
@@ -59,14 +69,64 @@ export function MatchRoomView({
     turnStartAt,
     opponentLastSeenAt,
     opponentChampionName,
+    lobby,
+    selfPlayer,
+    opponentPlayer,
   } = usePvpBattle(session, { onMatchComplete })
+
+  const localRun = useMemo(
+    () => loadOnlineRun(session.lobbyId, session.sessionId),
+    [session.lobbyId, session.sessionId],
+  )
+
+  const introduction = useMemo(() => {
+    if (!battleView || !selfPlayer || !opponentPlayer) return null
+    const arenaPhase = match?.arenaPhase ?? runStatus?.arenaPhase ?? 'normal'
+    return buildMatchIntroductionSnapshot({
+      opponent: opponentPlayer,
+      selfPlayer,
+      lobby,
+      arenaPhase,
+      finalDuelSeriesLabel: runStatus?.finalDuelSeriesLabel ?? null,
+      selfEvolutionId: localRun.evolutionId ?? selfPlayer.evolutionId,
+      selfHp: battleView.me.hp,
+      selfMaxHp: battleView.me.maxHp,
+      opponentHp: battleView.opponent.hp,
+      opponentMaxHp: battleView.opponent.maxHp,
+    })
+  }, [
+    battleView,
+    selfPlayer,
+    opponentPlayer,
+    lobby,
+    match?.arenaPhase,
+    runStatus?.arenaPhase,
+    runStatus?.finalDuelSeriesLabel,
+    localRun.evolutionId,
+  ])
 
   const opponentName =
     opponentChampionName ??
     session.opponentChampionName ??
     'Waiting for opponent…'
 
-  if (battleView && bothConnected) {
+  if (
+    battleView &&
+    bothConnected &&
+    introduction &&
+    !introAcknowledged
+  ) {
+    return (
+      <MatchIntroductionScreen
+        introduction={introduction}
+        activePlayersRemaining={runStatus?.activePlayersRemaining ?? 2}
+        onBeginCombat={() => setIntroAcknowledged(true)}
+        onLeave={onLeave}
+      />
+    )
+  }
+
+  if (battleView && bothConnected && introAcknowledged) {
     return (
       <PvpCombatView
         session={session}
@@ -78,6 +138,7 @@ export function MatchRoomView({
         stateVersion={stateVersion}
         turnStartAt={turnStartAt}
         opponentLastSeenAt={opponentLastSeenAt}
+        arenaPhase={match?.arenaPhase}
         onPlayCard={(index) => void playCard(index)}
         onSendEmote={(id) => void sendEmote(id)}
         onEndTurn={() => void endTurn()}
@@ -143,7 +204,7 @@ export function MatchRoomView({
 
       {bothConnected && !battleView && !battleViewError && (
         <p className="match-room-ready-banner">
-          Both players connected — starting battle…
+          Both players connected — preparing scouting report…
         </p>
       )}
 

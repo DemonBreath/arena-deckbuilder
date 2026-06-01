@@ -1,7 +1,8 @@
-import { getClassDefinition } from '../game/classDatabase'
+import { formatPlayerClassTitle } from '../game/classIdentity'
 import {
   formatRound,
   getOpponentsDefeatedProgress,
+  runIdentity,
   type GameState,
 } from '../game/gameState'
 
@@ -12,13 +13,14 @@ interface RunHeaderProps {
 
 export function RunHeader({ state, title }: RunHeaderProps) {
   const progress = getOpponentsDefeatedProgress(state)
+  const classTitle = formatPlayerClassTitle(runIdentity(state))
 
   return (
     <header className="run-header">
       <div className="run-header__titles">
         {title && <h2>{title}</h2>}
         <p className="run-header__champion">
-          {state.championName} — {getClassDefinition(state.classId).name}
+          {state.championName} — {classTitle}
         </p>
         <p className="run-header__round">{formatRound(state.battleNumber)}</p>
       </div>

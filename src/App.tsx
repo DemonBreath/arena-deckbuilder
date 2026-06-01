@@ -11,11 +11,14 @@ import { MatchResultsView } from './components/MatchResultsView'
 import { MatchRoomView } from './components/MatchRoomView'
 import { OnlineChampionView } from './components/OnlineChampionView'
 import { OnlineLobbyView } from './components/OnlineLobbyView'
+import { ArenaDraftView } from './components/ArenaDraftView'
 import { OnlineShopView } from './components/OnlineShopView'
+import { EvolutionSelectionScreen } from './components/EvolutionSelectionScreen'
 import { RewardView } from './components/RewardView'
 import { ShopView } from './components/ShopView'
 import { SpectatorView } from './components/SpectatorView'
 import { VictoryView } from './components/VictoryView'
+import { APP_MILESTONE_LABEL } from './appMeta'
 import { getOrCreateSessionId } from './lib/sessionId'
 import {
   canStartRun,
@@ -56,6 +59,7 @@ import {
   type PersistedOnlineSession,
 } from './services/persistedSessionService'
 import { rejoinFromPersisted } from './services/reconnectService'
+import { resolvePlayerAssignment } from './services/matchService'
 import {
   clearOnlineRun,
   initializeOnlineRunForClass,
@@ -86,6 +90,7 @@ function App() {
   const [showBye, setShowBye] = useState(false)
   const [showSpectator, setShowSpectator] = useState(false)
   const [showShop, setShowShop] = useState(false)
+  const [showArenaDraft, setShowArenaDraft] = useState(false)
   const [showChampion, setShowChampion] = useState(false)
   const [showMatchResults, setShowMatchResults] = useState(false)
   const [completedMatch, setCompletedMatch] = useState<PvpMatch | null>(null)
@@ -163,6 +168,7 @@ function App() {
     setShowBye(false)
     setShowSpectator(false)
     setShowShop(false)
+    setShowArenaDraft(false)
     setShowChampion(false)
     setShowMatchResults(false)
     setCompletedMatch(null)
@@ -186,6 +192,8 @@ function App() {
         setShowSpectator(true)
       } else if (assignment.type === 'shop') {
         setShowShop(true)
+      } else if (assignment.type === 'arena_draft') {
+        setShowArenaDraft(true)
       } else if (assignment.type === 'champion') {
         setShowChampion(true)
       }
@@ -404,11 +412,13 @@ function App() {
           onlineSession.lobbyId,
           onlineSession.sessionId,
         )
+        const won = match.winnerPlayerId === onlineSession.playerId
         preparePostMatchRewards(
           onlineSession.lobbyId,
           onlineSession.sessionId,
           match.id,
           local.deck,
+          won,
         )
       }
       setCompletedMatch(match)
@@ -426,23 +436,24 @@ function App() {
     setShowMatchResults(false)
     setCompletedMatch(null)
 
-    if (onlineSession) {
-      try {
-        const me = await fetchLobbyPlayer(onlineSession.playerId)
-        if (me?.eliminated) {
-          setShowSpectator(true)
-          return
-        }
-      } catch {
-        /* fall through to shop */
-      }
-    }
+    if (!onlineSession) return
 
-    setShowShop(true)
-  }, [onlineSession])
+    try {
+      const me = await fetchLobbyPlayer(onlineSession.playerId)
+      const assignment = await resolvePlayerAssignment(onlineSession)
+      applyPlayerAssignment(assignment, Boolean(me?.eliminated))
+    } catch {
+      setShowShop(true)
+    }
+  }, [onlineSession, applyPlayerAssignment])
 
   const handleShopContinue = useCallback(() => {
     setShowShop(false)
+  }, [])
+
+  const handleArenaDraftContinue = useCallback(() => {
+    setShowArenaDraft(false)
+    setShowShop(true)
   }, [])
 
   const handleSoloChampionSubmit = useCallback(async () => {
@@ -537,6 +548,17 @@ function App() {
           session={onlineSession}
           onLeave={() => void handleLeaveLobby()}
           onViewChampions={() => setShowDailyChampionsBoard(true)}
+        />
+      </div>
+    )
+  }
+
+  if (onlineSession && showArenaDraft) {
+    return (
+      <div className="app">
+        <ArenaDraftView
+          session={onlineSession}
+          onContinueToShop={handleArenaDraftContinue}
         />
       </div>
     )
@@ -666,6 +688,10 @@ function App() {
           onBye={handleBye}
           onSpectator={handleSpectator}
           onEnterShop={handleEnterShop}
+          onEnterArenaDraft={() => {
+            resetOnlineScreens()
+            setShowArenaDraft(true)
+          }}
           onChampion={handleChampion}
         />
       </div>
@@ -680,9 +706,7 @@ function App() {
           <p className="tagline">
             Enter the arena, defeat every opponent, and claim the daily crown.
           </p>
-          <p className="subtitle">
-            Milestone 21 — class-specific card pools
-          </p>
+          <p className="subtitle">{APP_MILESTONE_LABEL}</p>
 
           {onlineAvailable && pendingRejoin && !onlineSession && (
             <RejoinPrompt
@@ -826,6 +850,17 @@ function App() {
                   setShowClassTest(true)
                 }
               : undefined
+          }
+        />
+      )}
+
+      {state.screen === 'evolution' && (
+        <EvolutionSelectionScreen
+          baseClassId={state.classId}
+          championName={state.championName}
+          battlesWon={state.battleNumber}
+          onPick={(evolutionId) =>
+            dispatch({ type: 'PICK_EVOLUTION', evolutionId })
           }
         />
       )}

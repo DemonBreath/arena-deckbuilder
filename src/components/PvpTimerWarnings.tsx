@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import type { ArenaPhase } from '../game/arenaPhase'
+import { getTurnDurationMs } from '../game/arenaPhase'
 import {
   isOpponentLikelyDisconnected,
   isTurnEndingSoon,
@@ -8,6 +10,7 @@ interface PvpTimerWarningsProps {
   turnStartAt: string | null
   isMyTurn: boolean
   battleActive: boolean
+  arenaPhase?: ArenaPhase
   opponentLastSeenAt: string | null
   opponentName: string
 }
@@ -16,10 +19,12 @@ export function PvpTimerWarnings({
   turnStartAt,
   isMyTurn,
   battleActive,
+  arenaPhase = 'normal',
   opponentLastSeenAt,
   opponentName,
 }: PvpTimerWarningsProps) {
   const [nowMs, setNowMs] = useState(Date.now())
+  const turnDurationMs = getTurnDurationMs(arenaPhase)
 
   useEffect(() => {
     if (!battleActive) return
@@ -29,7 +34,8 @@ export function PvpTimerWarnings({
 
   if (!battleActive) return null
 
-  const turnEndingSoon = isMyTurn && isTurnEndingSoon(turnStartAt, nowMs)
+  const turnEndingSoon =
+    isMyTurn && isTurnEndingSoon(turnStartAt, nowMs, turnDurationMs)
   const opponentDisconnected = isOpponentLikelyDisconnected(
     opponentLastSeenAt,
     nowMs,

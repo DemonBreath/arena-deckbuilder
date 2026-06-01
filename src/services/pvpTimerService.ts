@@ -6,9 +6,10 @@ import {
   resolveTimeoutWinnerSlot,
   type PlayerSlot,
 } from '../game/pvpBattleState'
+import { getArenaPhaseConfig } from '../game/arenaPhase'
 import {
   isMatchPlayerDisconnected,
-  isMatchTimedOut,
+  isMatchTimedOutForPhase,
   isTurnExpired,
   MATCH_DISCONNECT_FORFEIT_MS,
 } from '../game/pvpTimers'
@@ -18,6 +19,8 @@ import {
   persistMatchBattleState,
 } from './pvpBattleService'
 import { applyMatchArenaProgression } from './arenaService'
+import { recordMatchRivalHistory } from './rivalService'
+import { recordMatchScoutingStats } from './scoutingService'
 import type { LobbyPlayer } from '../types/lobby'
 import type { PvpMatch } from '../types/match'
 
@@ -59,7 +62,9 @@ async function forceCompleteMatch(
   })
 
   if (updated.status === 'completed' && updated.winnerPlayerId) {
+    await recordMatchScoutingStats(updated)
     await applyMatchArenaProgression(updated)
+    await recordMatchRivalHistory(updated)
   }
 
   return updated
@@ -95,7 +100,10 @@ export async function processMatchTimers(
     )
   }
 
-  if (isMatchTimedOut(match.battleStartedAt, nowMs)) {
+  const phaseConfig = getArenaPhaseConfig(match.arenaPhase)
+  const matchTimeoutMin = Math.round(phaseConfig.matchTimeoutMs / 60_000)
+
+  if (isMatchTimedOutForPhase(match.battleStartedAt, match.arenaPhase, nowMs)) {
     const winnerSlot = resolveTimeoutWinnerSlot(
       state,
       player1?.lives ?? 0,
@@ -105,12 +113,18 @@ export async function processMatchTimers(
     return forceCompleteMatch(
       match,
       winnerSlot,
-      `Match time limit (20 min) — ${winner.championName} wins on tiebreak.`,
+      `Match time limit (${matchTimeoutMin} min) — ${winner.championName} wins on tiebreak.`,
       `Match timed out — ${winner.championName} wins.`,
     )
   }
 
-  if (isTurnExpired(match.turnStartAt, nowMs)) {
+  if (
+    isTurnExpired(
+      match.turnStartAt,
+      nowMs,
+      phaseConfig.turnDurationMs,
+    )
+  ) {
     const nextState = applyTurnTimeoutEnd(state)
     if (!nextState || nextState.version === state.version) return match
 
@@ -125,7 +139,9 @@ export async function processMatchTimers(
     })
 
     if (match.status === 'completed' && match.winnerPlayerId) {
+      await recordMatchScoutingStats(match)
       await applyMatchArenaProgression(match)
+      await recordMatchRivalHistory(match)
     }
   }
 

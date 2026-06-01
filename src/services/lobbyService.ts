@@ -8,7 +8,11 @@ import {
   parseClassId,
   type ClassId,
 } from '../game/classDatabase'
+import { parseEvolutionId } from '../game/classEvolutions'
 import type { RelicId } from '../game/relicDatabase'
+import { parsePlayerScoutingStats } from './scoutingService'
+import { parseRivalHistory } from './rivalService'
+import { mapLobbyDraftFields } from './arenaDraftService'
 import {
   isLobbyFull,
   readyStateFromBoolean,
@@ -28,6 +32,14 @@ interface LobbyRow {
   status: string
   round_number?: number
   champion_player_id?: string | null
+  final_duel_player_1_id?: string | null
+  final_duel_player_2_id?: string | null
+  final_duel_p1_wins?: number
+  final_duel_p2_wins?: number
+  active_draft_ids?: unknown
+  draft_history?: unknown
+  draft_session?: unknown
+  last_draft_result?: unknown
   created_at: string
 }
 
@@ -37,6 +49,9 @@ interface LobbyPlayerRow {
   session_id: string
   champion_name: string
   class_id?: string | null
+  evolution_id?: string | null
+  scouting_stats?: unknown
+  rival_history?: unknown
   ready: boolean
   lives?: number
   eliminated?: boolean
@@ -50,12 +65,23 @@ interface LobbyPlayerRow {
 }
 
 function mapLobby(row: LobbyRow): Lobby {
+  const drafts = mapLobbyDraftFields(row)
   return {
     id: row.id,
     code: row.code,
     status: row.status as LobbyStatus,
     roundNumber: typeof row.round_number === 'number' ? row.round_number : 1,
     championPlayerId: row.champion_player_id ?? null,
+    finalDuelPlayer1Id: row.final_duel_player_1_id ?? null,
+    finalDuelPlayer2Id: row.final_duel_player_2_id ?? null,
+    finalDuelP1Wins:
+      typeof row.final_duel_p1_wins === 'number' ? row.final_duel_p1_wins : 0,
+    finalDuelP2Wins:
+      typeof row.final_duel_p2_wins === 'number' ? row.final_duel_p2_wins : 0,
+    activeDraftIds: drafts.activeDraftIds,
+    draftHistory: drafts.draftHistory,
+    draftSession: drafts.draftSession,
+    lastDraftResult: drafts.lastDraftResult,
     createdAt: row.created_at,
   }
 }
@@ -77,6 +103,9 @@ function mapLobbyPlayer(row: LobbyPlayerRow): LobbyPlayer {
     sessionId: row.session_id,
     championName: row.champion_name,
     classId: parseClassId(row.class_id),
+    evolutionId: parseEvolutionId(row.evolution_id),
+    scoutingStats: parsePlayerScoutingStats(row.scouting_stats),
+    rivalHistory: parseRivalHistory(row.rival_history),
     readyState: readyStateFromBoolean(row.ready),
     lives: typeof row.lives === 'number' ? row.lives : 3,
     eliminated: Boolean(row.eliminated),

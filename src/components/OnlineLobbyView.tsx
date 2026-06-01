@@ -18,6 +18,8 @@ import type { OnlineLobbySession } from '../types/lobby'
 
 import type { OnlineMatchSession } from '../types/match'
 
+import { ActiveArenaDraftsPanel } from './ActiveArenaDraftsPanel'
+import { ArenaPhaseBanner } from './ArenaPhaseBanner'
 import { ArenaRosterPanel } from './ArenaRosterPanel'
 import { ClassInfoBadge } from './ClassInfoBadge'
 
@@ -38,6 +40,8 @@ interface OnlineLobbyViewProps {
   onSpectator: () => void
 
   onEnterShop: () => void
+
+  onEnterArenaDraft: () => void
 
   onChampion: () => void
 
@@ -60,6 +64,8 @@ export function OnlineLobbyView({
   onSpectator,
 
   onEnterShop,
+
+  onEnterArenaDraft,
 
   onChampion,
 
@@ -104,6 +110,8 @@ export function OnlineLobbyView({
     onSpectator,
 
     onEnterShop,
+
+    onEnterArenaDraft,
 
     onChampion,
 
@@ -154,6 +162,21 @@ export function OnlineLobbyView({
 
 
       <LobbyStatusBadge lobby={lobby} />
+
+      {lobby && lobby.activeDraftIds.length > 0 && (
+        <ActiveArenaDraftsPanel
+          activeDraftIds={lobby.activeDraftIds}
+          compact
+        />
+      )}
+
+      {runStatus && (
+        <ArenaPhaseBanner
+          phase={runStatus.arenaPhase}
+          activePlayersRemaining={runStatus.activePlayersRemaining}
+          finalDuelSeriesLabel={runStatus.finalDuelSeriesLabel}
+        />
+      )}
 
       {myPlayer && (
         <div className="online-lobby-my-class">

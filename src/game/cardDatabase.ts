@@ -1,3 +1,5 @@
+import { SIGNATURE_CARD_ENTRIES } from './signatureCardEntries'
+
 export type CardId =
   | 'strike'
   | 'guard'
@@ -43,6 +45,98 @@ export type CardId =
   | 'sanguine_strike'
   | 'essence_drain'
   | 'blood_feast'
+  | 'plunder_strike'
+  | 'broadside'
+  | 'salty_guard'
+  | 'captains_rum'
+  | 'serrated_blade'
+  | 'hearty_stew'
+  | 'mise_guard'
+  | 'grand_feast'
+  | 'drake_strike'
+  | 'scale_guard'
+  | 'kindling'
+  | 'dragons_fury'
+  | 'lucky_strike'
+  | 'double_down'
+  | 'hedged_guard'
+  | 'jackpot'
+  | 'encore'
+  | 'harmony'
+  | 'rhythm_guard'
+  | 'grand_finale'
+  | 'wrench_strike'
+  | 'gyro_shot'
+  | 'plating'
+  | 'overclock_core'
+  | 'flurry'
+  | 'palm_strike'
+  | 'focus_guard'
+  | 'thousand_steps'
+  | 'march_strike'
+  | 'rally_guard'
+  | 'war_cry'
+  | 'siege_breaker'
+  | 'guardian_brace'
+  | 'guardian_shield_crush'
+  | 'guardian_stand_firm'
+  | 'berserker_enrage'
+  | 'berserker_blood_strike'
+  | 'berserker_reckless_charge'
+  | 'gunslinger_quick_shot'
+  | 'gunslinger_chain_fire'
+  | 'gunslinger_reload'
+  | 'necromancer_harvest'
+  | 'necromancer_bone_spear'
+  | 'necromancer_soul_guard'
+  | 'vampire_bloodletting'
+  | 'vampire_crimson_bite'
+  | 'vampire_blood_shield'
+  | 'pirate_heist'
+  | 'pirate_cannon_volley'
+  | 'pirate_treasure_cache'
+  | 'merchant_tithe'
+  | 'merchant_invoice'
+  | 'merchant_hoard'
+  | 'alchemist_distill'
+  | 'alchemist_acid_flask'
+  | 'alchemist_elixir_surge'
+  | 'timekeeper_tick'
+  | 'timekeeper_chrono_bolt'
+  | 'timekeeper_rewind'
+  | 'pyromancer_kindle'
+  | 'pyromancer_fireball'
+  | 'pyromancer_ignite_burst'
+  | 'cryomancer_chill'
+  | 'cryomancer_ice_lance'
+  | 'cryomancer_glacier'
+  | 'paladin_prayer'
+  | 'paladin_smite'
+  | 'paladin_bulwark'
+  | 'assassin_poised'
+  | 'assassin_shadow_cut'
+  | 'assassin_ambush_prep'
+  | 'chef_chop'
+  | 'chef_simmer'
+  | 'chef_plated_feast'
+  | 'dragon_knight_hoard'
+  | 'dragon_knight_drake_fire'
+  | 'dragon_knight_armor_plate'
+  | 'gambler_chip'
+  | 'gambler_jackpot_shot'
+  | 'gambler_all_in'
+  | 'bard_verse'
+  | 'bard_crescendo'
+  | 'bard_harmony_shield'
+  | 'engineer_wind_up'
+  | 'engineer_pulse_blast'
+  | 'engineer_overcharge'
+  | 'monk_breath'
+  | 'monk_palm_burst'
+  | 'monk_meditation'
+  | 'warlord_rally'
+  | 'warlord_charge'
+  | 'warlord_siege_wall'
 
 export type CardSpecial = 'shield_bash' | 'double_guard'
 
@@ -53,6 +147,8 @@ export interface CardDefinition {
   damage?: number
   block?: number
   description: string
+  /** Extra line for signature cards — shown in card tooltip. */
+  mechanicHint?: string
   shopPrice: number
   special?: CardSpecial
 }
@@ -60,7 +156,7 @@ export interface CardDefinition {
 const CLASS_CARD_PRICE = 30
 const RARE_CLASS_CARD_PRICE = 40
 
-export const CARD_DATABASE: Record<CardId, CardDefinition> = {
+const CORE_CARD_DATABASE = {
   strike: {
     id: 'strike',
     name: 'Strike',
@@ -377,7 +473,270 @@ export const CARD_DATABASE: Record<CardId, CardDefinition> = {
     description: 'Deal 8 damage. Heal 3 HP if hit',
     shopPrice: RARE_CLASS_CARD_PRICE,
   },
-}
+  plunder_strike: {
+    id: 'plunder_strike',
+    name: 'Plunder Strike',
+    cost: 1,
+    damage: 6,
+    description: 'Deal 6 damage',
+    shopPrice: CLASS_CARD_PRICE,
+  },
+  broadside: {
+    id: 'broadside',
+    name: 'Broadside',
+    cost: 2,
+    damage: 9,
+    description: 'Deal 9 damage',
+    shopPrice: CLASS_CARD_PRICE,
+  },
+  salty_guard: {
+    id: 'salty_guard',
+    name: 'Salty Guard',
+    cost: 1,
+    block: 7,
+    description: 'Gain 7 block',
+    shopPrice: CLASS_CARD_PRICE,
+  },
+  captains_rum: {
+    id: 'captains_rum',
+    name: "Captain's Rum",
+    cost: 2,
+    block: 10,
+    description: 'Gain 10 block',
+    shopPrice: RARE_CLASS_CARD_PRICE,
+  },
+  serrated_blade: {
+    id: 'serrated_blade',
+    name: 'Serrated Blade',
+    cost: 1,
+    damage: 6,
+    description: 'Deal 6 damage',
+    shopPrice: CLASS_CARD_PRICE,
+  },
+  hearty_stew: {
+    id: 'hearty_stew',
+    name: 'Hearty Stew',
+    cost: 1,
+    block: 6,
+    description: 'Gain 6 block',
+    shopPrice: CLASS_CARD_PRICE,
+  },
+  mise_guard: {
+    id: 'mise_guard',
+    name: 'Mise en Place',
+    cost: 1,
+    block: 8,
+    description: 'Gain 8 block',
+    shopPrice: CLASS_CARD_PRICE,
+  },
+  grand_feast: {
+    id: 'grand_feast',
+    name: 'Grand Feast',
+    cost: 2,
+    damage: 7,
+    block: 5,
+    description: 'Deal 7 damage. Gain 5 block',
+    shopPrice: RARE_CLASS_CARD_PRICE,
+  },
+  drake_strike: {
+    id: 'drake_strike',
+    name: 'Drake Strike',
+    cost: 1,
+    damage: 6,
+    description: 'Deal 6 damage',
+    shopPrice: CLASS_CARD_PRICE,
+  },
+  scale_guard: {
+    id: 'scale_guard',
+    name: 'Scale Guard',
+    cost: 1,
+    block: 7,
+    description: 'Gain 7 block',
+    shopPrice: CLASS_CARD_PRICE,
+  },
+  kindling: {
+    id: 'kindling',
+    name: 'Kindling Breath',
+    cost: 2,
+    damage: 8,
+    description: 'Deal 8 damage',
+    shopPrice: CLASS_CARD_PRICE,
+  },
+  dragons_fury: {
+    id: 'dragons_fury',
+    name: "Dragon's Fury",
+    cost: 2,
+    damage: 10,
+    description: 'Deal 10 damage',
+    shopPrice: RARE_CLASS_CARD_PRICE,
+  },
+  lucky_strike: {
+    id: 'lucky_strike',
+    name: 'Lucky Strike',
+    cost: 1,
+    damage: 6,
+    description: 'Deal 6 damage',
+    shopPrice: CLASS_CARD_PRICE,
+  },
+  double_down: {
+    id: 'double_down',
+    name: 'Double Down',
+    cost: 2,
+    damage: 8,
+    description: 'Deal 8 damage',
+    shopPrice: CLASS_CARD_PRICE,
+  },
+  hedged_guard: {
+    id: 'hedged_guard',
+    name: 'Hedged Guard',
+    cost: 1,
+    block: 6,
+    description: 'Gain 6 block',
+    shopPrice: CLASS_CARD_PRICE,
+  },
+  jackpot: {
+    id: 'jackpot',
+    name: 'Jackpot',
+    cost: 2,
+    damage: 11,
+    description: 'Deal 11 damage',
+    shopPrice: RARE_CLASS_CARD_PRICE,
+  },
+  encore: {
+    id: 'encore',
+    name: 'Encore',
+    cost: 1,
+    damage: 5,
+    description: 'Deal 5 damage',
+    shopPrice: CLASS_CARD_PRICE,
+  },
+  harmony: {
+    id: 'harmony',
+    name: 'Harmony',
+    cost: 1,
+    block: 6,
+    description: 'Gain 6 block',
+    shopPrice: CLASS_CARD_PRICE,
+  },
+  rhythm_guard: {
+    id: 'rhythm_guard',
+    name: 'Rhythm Guard',
+    cost: 1,
+    block: 7,
+    description: 'Gain 7 block',
+    shopPrice: CLASS_CARD_PRICE,
+  },
+  grand_finale: {
+    id: 'grand_finale',
+    name: 'Grand Finale',
+    cost: 2,
+    damage: 9,
+    description: 'Deal 9 damage',
+    shopPrice: RARE_CLASS_CARD_PRICE,
+  },
+  wrench_strike: {
+    id: 'wrench_strike',
+    name: 'Wrench Strike',
+    cost: 1,
+    damage: 6,
+    description: 'Deal 6 damage',
+    shopPrice: CLASS_CARD_PRICE,
+  },
+  gyro_shot: {
+    id: 'gyro_shot',
+    name: 'Gyro Shot',
+    cost: 2,
+    damage: 8,
+    description: 'Deal 8 damage',
+    shopPrice: CLASS_CARD_PRICE,
+  },
+  plating: {
+    id: 'plating',
+    name: 'Plating',
+    cost: 1,
+    block: 7,
+    description: 'Gain 7 block',
+    shopPrice: CLASS_CARD_PRICE,
+  },
+  overclock_core: {
+    id: 'overclock_core',
+    name: 'Overclock Core',
+    cost: 2,
+    damage: 7,
+    block: 4,
+    description: 'Deal 7 damage. Gain 4 block',
+    shopPrice: RARE_CLASS_CARD_PRICE,
+  },
+  flurry: {
+    id: 'flurry',
+    name: 'Flurry',
+    cost: 1,
+    damage: 5,
+    description: 'Deal 5 damage',
+    shopPrice: CLASS_CARD_PRICE,
+  },
+  palm_strike: {
+    id: 'palm_strike',
+    name: 'Palm Strike',
+    cost: 1,
+    damage: 6,
+    description: 'Deal 6 damage',
+    shopPrice: CLASS_CARD_PRICE,
+  },
+  focus_guard: {
+    id: 'focus_guard',
+    name: 'Focus Guard',
+    cost: 1,
+    block: 7,
+    description: 'Gain 7 block',
+    shopPrice: CLASS_CARD_PRICE,
+  },
+  thousand_steps: {
+    id: 'thousand_steps',
+    name: 'Thousand Steps',
+    cost: 2,
+    damage: 9,
+    description: 'Deal 9 damage',
+    shopPrice: RARE_CLASS_CARD_PRICE,
+  },
+  march_strike: {
+    id: 'march_strike',
+    name: 'March Strike',
+    cost: 1,
+    damage: 6,
+    description: 'Deal 6 damage',
+    shopPrice: CLASS_CARD_PRICE,
+  },
+  rally_guard: {
+    id: 'rally_guard',
+    name: 'Rally Guard',
+    cost: 1,
+    block: 7,
+    description: 'Gain 7 block',
+    shopPrice: CLASS_CARD_PRICE,
+  },
+  war_cry: {
+    id: 'war_cry',
+    name: 'War Cry',
+    cost: 2,
+    damage: 7,
+    description: 'Deal 7 damage',
+    shopPrice: CLASS_CARD_PRICE,
+  },
+  siege_breaker: {
+    id: 'siege_breaker',
+    name: 'Siege Breaker',
+    cost: 2,
+    damage: 10,
+    description: 'Deal 10 damage',
+    shopPrice: RARE_CLASS_CARD_PRICE,
+  },
+} satisfies Partial<Record<CardId, CardDefinition>>
+
+export const CARD_DATABASE: Record<CardId, CardDefinition> = {
+  ...CORE_CARD_DATABASE,
+  ...SIGNATURE_CARD_ENTRIES,
+} as Record<CardId, CardDefinition>
 
 export const STARTER_DECK: CardId[] = [
   ...Array<CardId>(5).fill('strike'),

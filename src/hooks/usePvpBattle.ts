@@ -12,7 +12,10 @@ import {
   markPlayerLoadedInMatch,
   subscribeToMatch,
 } from '../services/matchService'
-import { fetchLobbyPlayers } from '../services/lobbyService'
+import { fetchLobby, fetchLobbyPlayers } from '../services/lobbyService'
+import { loadOnlineRun } from '../services/onlineRunService'
+import { ensurePlayerEvolutionSynced } from '../services/scoutingService'
+import type { Lobby, LobbyPlayer } from '../types/lobby'
 import {
   submitPvpBattleAction,
   tryInitializePvpBattle,
@@ -25,7 +28,6 @@ import {
   type OnlineMatchSession,
   type PvpMatch,
 } from '../types/match'
-import type { LobbyPlayer } from '../types/lobby'
 
 export function usePvpBattle(
   session: OnlineMatchSession | null,
@@ -34,6 +36,7 @@ export function usePvpBattle(
   const { onMatchComplete } = options ?? {}
   const [match, setMatch] = useState<PvpMatch | null>(null)
   const [lobbyPlayers, setLobbyPlayers] = useState<LobbyPlayer[]>([])
+  const [lobby, setLobby] = useState<Lobby | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [actionPending, setActionPending] = useState(false)
   const [timerPending, setTimerPending] = useState(false)
@@ -60,6 +63,7 @@ export function usePvpBattle(
     if (!session) {
       setMatch(null)
       setLobbyPlayers([])
+      setLobby(null)
       setSelfLoaded(false)
       markedRef.current = false
       initRef.current = false
@@ -75,12 +79,16 @@ export function usePvpBattle(
 
     const load = async () => {
       try {
-        const [data, players] = await Promise.all([
+        const [data, players, lobbyRow] = await Promise.all([
           fetchMatch(session.matchId),
           fetchLobbyPlayers(session.lobbyId),
+          fetchLobby(session.lobbyId),
         ])
         setMatch(data)
         setLobbyPlayers(players)
+        setLobby(lobbyRow)
+        const run = loadOnlineRun(session.lobbyId, session.sessionId)
+        void ensurePlayerEvolutionSynced(session.playerId, run.evolutionId)
         if (data && session.playerId) {
           const already =
             session.playerId === data.player1Id
@@ -235,6 +243,11 @@ export function usePvpBattle(
       }
     }
   }, [match?.battleState, session?.playerId])
+
+  const selfPlayer = useMemo(() => {
+    if (!session) return null
+    return lobbyPlayers.find((p) => p.id === session.playerId) ?? null
+  }, [session, lobbyPlayers])
 
   const opponentPlayer = useMemo(() => {
     if (!session || !match) return null
@@ -391,5 +404,8 @@ export function usePvpBattle(
       battleView?.opponent.championName ??
       opponentPlayer?.championName ??
       null,
+    lobby,
+    selfPlayer,
+    opponentPlayer,
   }
 }

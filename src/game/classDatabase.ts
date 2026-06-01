@@ -2,22 +2,30 @@ import type { CardId } from './cardDatabase'
 import { ONLINE_SHOP_CARD_PRICE } from './arenaConstants'
 import { PVP_MAX_HP, PVP_STARTING_ENERGY } from './pvpBattleState'
 
-/** Extend this union when adding class #13+. */
+/** Extend this union when adding class #21+. */
 export type ClassId =
   | 'guardian'
   | 'berserker'
   | 'gunslinger'
   | 'necromancer'
+  | 'pirate'
+  | 'vampire'
+  | 'merchant'
+  | 'alchemist'
+  | 'timekeeper'
   | 'pyromancer'
   | 'cryomancer'
   | 'paladin'
   | 'assassin'
-  | 'alchemist'
-  | 'timekeeper'
-  | 'merchant'
-  | 'vampire'
+  | 'chef'
+  | 'dragon_knight'
+  | 'gambler'
+  | 'bard'
+  | 'engineer'
+  | 'monk'
+  | 'warlord'
 
-/** Standard role labels shown in UI and filters. */
+/** Standard role labels shown in UI and filters (scales to 30+ classes). */
 export type ClassRole =
   | 'Tank'
   | 'Aggro'
@@ -26,18 +34,43 @@ export type ClassRole =
   | 'Sustain'
   | 'Economy'
   | 'Utility'
+  | 'Risk/Reward'
+  | 'Damage Over Time'
+  | 'Defensive Control'
+  | 'Tank Support'
+  | 'Burst'
+  | 'Preparation'
+  | 'Scaling'
+  | 'High Variance'
+  | 'Resource Generation'
+  | 'Battlefield Commander'
 
 export type ClassDifficulty = 'Easy' | 'Medium' | 'Hard'
 
 export const CLASS_ROLE_FILTERS: readonly ClassRole[] = [
   'Tank',
   'Aggro',
+  'Burst',
   'Combo',
   'Control',
+  'Defensive Control',
   'Sustain',
+  'Tank Support',
   'Economy',
+  'Risk/Reward',
   'Utility',
+  'Preparation',
+  'Scaling',
+  'Damage Over Time',
+  'High Variance',
+  'Resource Generation',
+  'Battlefield Commander',
 ] as const
+
+/** CSS slug for role badges (handles spaces and slashes). */
+export function roleToCssSlug(role: ClassRole): string {
+  return role.toLowerCase().replace(/\s+/g, '-').replace(/\//g, '-')
+}
 
 export type ClassPassiveKind =
   | 'fortify'
@@ -52,7 +85,34 @@ export type ClassPassiveKind =
   | 'opening_tempo'
   | 'merchant_barter'
   | 'vampire_lifesteal'
+  | 'pirate_plunder'
+  | 'chef_prep'
+  | 'dragon_knight_siege'
+  | 'gambler_lucky'
+  | 'bard_improv'
+  | 'engineer_overclock'
+  | 'monk_flow'
+  | 'warlord_endurance'
+  | 'timekeeper_draw'
+  | 'assassin_healthy'
   | 'none'
+  /** Evolution passives */
+  | 'warden_fortify'
+  | 'sentinel_counter'
+  | 'templar_aegis'
+  | 'executioner_slain'
+  | 'bloodlord_siphon'
+  | 'juggernaut_brute'
+  | 'deadeye_opening'
+  | 'shadow_opening'
+  | 'infernal_scorch'
+  | 'lich_drain'
+  | 'mutagenist_brew'
+  | 'chrono_tempo'
+  | 'paradox_tempo'
+  | 'tycoon_barter'
+  | 'quartermaster'
+  | 'nightstalker'
 
 export const DEFAULT_CLASS_ID: ClassId = 'guardian'
 
@@ -269,6 +329,110 @@ const VAMPIRE_DECK = deck(
   'guard_plus',
 )
 
+const PIRATE_DECK = deck(
+  'strike',
+  'strike',
+  'strike',
+  'strike',
+  'plunder_strike',
+  'broadside',
+  'guard',
+  'salty_guard',
+  'strike_plus',
+  'guard_plus',
+)
+
+const CHEF_DECK = deck(
+  'strike',
+  'guard',
+  'serrated_blade',
+  'hearty_stew',
+  'strike',
+  'guard',
+  'mise_guard',
+  'strike_plus',
+  'guard_plus',
+  'serrated_blade',
+)
+
+const DRAGON_KNIGHT_DECK = deck(
+  'strike',
+  'strike',
+  'strike',
+  'drake_strike',
+  'scale_guard',
+  'guard',
+  'heavy_strike',
+  'kindling',
+  'guard_plus',
+  'strike_plus',
+)
+
+const GAMBLER_DECK = deck(
+  'strike',
+  'strike',
+  'lucky_strike',
+  'double_down',
+  'guard',
+  'hedged_guard',
+  'strike',
+  'guard',
+  'strike_plus',
+  'guard_plus',
+)
+
+const BARD_DECK = deck(
+  'strike',
+  'strike',
+  'encore',
+  'harmony',
+  'guard',
+  'rhythm_guard',
+  'strike',
+  'guard',
+  'strike_plus',
+  'guard_plus',
+)
+
+const ENGINEER_DECK = deck(
+  'strike',
+  'wrench_strike',
+  'gyro_shot',
+  'guard',
+  'plating',
+  'strike',
+  'guard',
+  'strike_plus',
+  'guard_plus',
+  'heavy_strike',
+)
+
+const MONK_DECK = deck(
+  'strike',
+  'strike',
+  'flurry',
+  'palm_strike',
+  'guard',
+  'focus_guard',
+  'strike',
+  'guard',
+  'strike_plus',
+  'guard_plus',
+)
+
+const WARLORD_DECK = deck(
+  'strike',
+  'march_strike',
+  'war_cry',
+  'guard',
+  'rally_guard',
+  'strike',
+  'guard',
+  'heavy_strike',
+  'guard_plus',
+  'strike_plus',
+)
+
 /**
  * Master playable roster — append new playable classes here.
  * Passive behavior is implemented in classPassives.ts via passiveKind.
@@ -385,7 +549,7 @@ export const CLASS_REGISTRY: readonly ClassDefinition[] = [
   {
     id: 'pyromancer',
     name: 'Pyromancer',
-    role: 'Aggro',
+    role: 'Damage Over Time',
     difficulty: 'Hard',
     deckStyle: 'Aggressive',
     tagline: 'Relentless firepower, little defense.',
@@ -412,7 +576,7 @@ export const CLASS_REGISTRY: readonly ClassDefinition[] = [
   {
     id: 'cryomancer',
     name: 'Cryomancer',
-    role: 'Control',
+    role: 'Defensive Control',
     difficulty: 'Medium',
     deckStyle: 'Defensive control',
     tagline: 'Ice armor and defensive control.',
@@ -439,7 +603,7 @@ export const CLASS_REGISTRY: readonly ClassDefinition[] = [
   {
     id: 'paladin',
     name: 'Paladin',
-    role: 'Sustain',
+    role: 'Tank Support',
     difficulty: 'Easy',
     deckStyle: 'Defensive sustain',
     tagline: 'Stable block and small heals.',
@@ -466,18 +630,19 @@ export const CLASS_REGISTRY: readonly ClassDefinition[] = [
   {
     id: 'assassin',
     name: 'Assassin',
-    role: 'Aggro',
+    role: 'Burst',
     difficulty: 'Hard',
     deckStyle: 'Burst aggressive',
-    tagline: 'First strike each turn hits hardest.',
+    tagline: 'Punish healthy opponents with lethal openers.',
     description:
-      'Burst specialist who opens every turn with a punishing attack.',
+      'Burst specialist who spikes damage against high-HP targets.',
     passive: {
       id: 'assassin_burst',
-      name: 'Opening Strike',
-      description: 'First attack card each turn deals +2 bonus damage.',
+      name: 'Vital Strike',
+      description:
+        'First attack each turn +2 damage. +1 more if enemy is above 70% HP.',
     },
-    passiveKind: 'assassin_burst',
+    passiveKind: 'assassin_healthy',
     stats: {
       maxHp: PVP_MAX_HP - 2,
       turnEnergy: PVP_STARTING_ENERGY,
@@ -522,14 +687,14 @@ export const CLASS_REGISTRY: readonly ClassDefinition[] = [
     name: 'Timekeeper',
     role: 'Control',
     difficulty: 'Hard',
-    deckStyle: 'Balanced tempo',
-    tagline: 'Burst of tempo on turn one.',
+    deckStyle: 'Draw tempo',
+    tagline: 'Extra cards and a burst of opening tempo.',
     description:
-      'Bends time for a strong opening turn, then plays a balanced game.',
+      'Manipulates time to draw deeper hands and seize turn one.',
     passive: {
       id: 'opening_tempo',
       name: 'Borrowed Moment',
-      description: '+2 Energy on the first turn of each battle only.',
+      description: '+2 Energy turn 1. Draw 6 cards each turn (not 5).',
     },
     passiveKind: 'opening_tempo',
     stats: {
@@ -598,6 +763,222 @@ export const CLASS_REGISTRY: readonly ClassDefinition[] = [
     intendedWeakness: 'Needs to land attacks; weak vs heavy block.',
     playable: true,
   },
+  {
+    id: 'pirate',
+    name: 'Pirate',
+    role: 'Risk/Reward',
+    difficulty: 'Medium',
+    deckStyle: 'Aggressive economy',
+    tagline: 'High seas, higher payouts.',
+    description:
+      'Weaker in direct fights but stacks gold after every victory.',
+    passive: {
+      id: 'pirate_plunder',
+      name: 'Plunder',
+      description: '+15 bonus gold after each victory (on top of normal rewards).',
+    },
+    passiveKind: 'pirate_plunder',
+    stats: {
+      maxHp: PVP_MAX_HP - 4,
+      turnEnergy: PVP_STARTING_ENERGY,
+      arenaLives: 3,
+      startingGoldBonus: 10,
+      shopDiscountPercent: 0,
+    },
+    starterDeck: [...PIRATE_DECK],
+    intendedStrength: 'Out-economies opponents over a long run.',
+    intendedWeakness: 'Below-average HP and combat-focused decks early.',
+    playable: true,
+  },
+  {
+    id: 'chef',
+    name: 'Chef',
+    role: 'Preparation',
+    difficulty: 'Easy',
+    deckStyle: 'Balanced prep',
+    tagline: 'Cooks up an edge before the first swing.',
+    description:
+      'Enters each battle well-prepared with extra opening block.',
+    passive: {
+      id: 'chef_prep',
+      name: 'Mise en Place',
+      description: '+3 Block on the first turn of each battle.',
+    },
+    passiveKind: 'chef_prep',
+    stats: {
+      maxHp: PVP_MAX_HP + 2,
+      turnEnergy: PVP_STARTING_ENERGY,
+      arenaLives: 3,
+      startingGoldBonus: 0,
+      shopDiscountPercent: 0,
+    },
+    starterDeck: [...CHEF_DECK],
+    intendedStrength: 'Safe openers and flexible guard attacks.',
+    intendedWeakness: 'Average damage; rewards patient play.',
+    playable: true,
+  },
+  {
+    id: 'dragon_knight',
+    name: 'Dragon Knight',
+    role: 'Scaling',
+    difficulty: 'Medium',
+    deckStyle: 'Scaling aggro',
+    tagline: 'Grows deadlier as the duel drags on.',
+    description:
+      'Starts steady, then deals more damage each turn you take in a fight.',
+    passive: {
+      id: 'dragon_knight_siege',
+      name: 'Rising Fury',
+      description: '+1 attack damage per turn taken this battle (max +3).',
+    },
+    passiveKind: 'dragon_knight_siege',
+    stats: {
+      maxHp: PVP_MAX_HP + 2,
+      turnEnergy: PVP_STARTING_ENERGY,
+      arenaLives: 3,
+      startingGoldBonus: 0,
+      shopDiscountPercent: 0,
+    },
+    starterDeck: [...DRAGON_KNIGHT_DECK],
+    intendedStrength: 'Strong in long fights and rematches.',
+    intendedWeakness: 'Weaker early turns before scaling kicks in.',
+    playable: true,
+  },
+  {
+    id: 'gambler',
+    name: 'Gambler',
+    role: 'High Variance',
+    difficulty: 'Hard',
+    deckStyle: 'Chaotic aggro',
+    tagline: 'Every attack is a roll of the dice.',
+    description:
+      'Unpredictable fighter — attacks gain 0–2 random bonus damage.',
+    passive: {
+      id: 'gambler_lucky',
+      name: 'Lucky Shot',
+      description: 'Attack cards deal +0 to +2 random bonus damage.',
+    },
+    passiveKind: 'gambler_lucky',
+    stats: {
+      maxHp: PVP_MAX_HP - 2,
+      turnEnergy: PVP_STARTING_ENERGY,
+      arenaLives: 3,
+      startingGoldBonus: 0,
+      shopDiscountPercent: 0,
+    },
+    starterDeck: [...GAMBLER_DECK],
+    intendedStrength: 'Explosive highs when variance favors you.',
+    intendedWeakness: 'Inconsistent damage; can whiff key turns.',
+    playable: true,
+  },
+  {
+    id: 'bard',
+    name: 'Bard',
+    role: 'Utility',
+    difficulty: 'Medium',
+    deckStyle: 'Flexible tempo',
+    tagline: 'More options in every hand.',
+    description:
+      'Flexible performer who draws a larger hand each turn.',
+    passive: {
+      id: 'bard_improv',
+      name: 'Improv',
+      description: 'Draw 6 cards per turn instead of 5.',
+    },
+    passiveKind: 'bard_improv',
+    stats: {
+      maxHp: PVP_MAX_HP,
+      turnEnergy: PVP_STARTING_ENERGY,
+      arenaLives: 3,
+      startingGoldBonus: 0,
+      shopDiscountPercent: 0,
+    },
+    starterDeck: [...BARD_DECK],
+    intendedStrength: 'More plays per turn via larger hands.',
+    intendedWeakness: 'Average HP; needs energy to use extra cards.',
+    playable: true,
+  },
+  {
+    id: 'engineer',
+    name: 'Engineer',
+    role: 'Resource Generation',
+    difficulty: 'Medium',
+    deckStyle: 'Gadget tempo',
+    tagline: 'Gadgets fuel explosive even turns.',
+    description:
+      'Tinkers with extra energy every other turn to power big plays.',
+    passive: {
+      id: 'engineer_overclock',
+      name: 'Overclock',
+      description: '+1 Energy on even-numbered turns (2, 4, 6…).',
+    },
+    passiveKind: 'engineer_overclock',
+    stats: {
+      maxHp: PVP_MAX_HP,
+      turnEnergy: PVP_STARTING_ENERGY,
+      arenaLives: 3,
+      startingGoldBonus: 0,
+      shopDiscountPercent: 0,
+    },
+    starterDeck: [...ENGINEER_DECK],
+    intendedStrength: 'Burst turns with 4 energy every other round.',
+    intendedWeakness: 'Off-turns are standard; timing matters.',
+    playable: true,
+  },
+  {
+    id: 'monk',
+    name: 'Monk',
+    role: 'Combo',
+    difficulty: 'Medium',
+    deckStyle: 'Chain combo',
+    tagline: 'Chains strikes into flowing combos.',
+    description:
+      'Rewards playing multiple cards per turn with bonus damage.',
+    passive: {
+      id: 'monk_flow',
+      name: 'Flow State',
+      description: 'Second and later cards each turn deal +1 damage if they attack.',
+    },
+    passiveKind: 'monk_flow',
+    stats: {
+      maxHp: PVP_MAX_HP - 2,
+      turnEnergy: PVP_STARTING_ENERGY,
+      arenaLives: 3,
+      startingGoldBonus: 0,
+      shopDiscountPercent: 0,
+    },
+    starterDeck: [...MONK_DECK],
+    intendedStrength: 'Multi-card turns spike damage.',
+    intendedWeakness: 'Needs enough energy and cheap cards.',
+    playable: true,
+  },
+  {
+    id: 'warlord',
+    name: 'Warlord',
+    role: 'Battlefield Commander',
+    difficulty: 'Easy',
+    deckStyle: 'Grinding control',
+    tagline: 'The longer the war, the stronger the blow.',
+    description:
+      'Commander who gains damage as battles grind on each turn.',
+    passive: {
+      id: 'warlord_endurance',
+      name: 'Siege Commander',
+      description: '+1 attack damage per turn taken this battle (max +4).',
+    },
+    passiveKind: 'warlord_endurance',
+    stats: {
+      maxHp: PVP_MAX_HP + 6,
+      turnEnergy: PVP_STARTING_ENERGY,
+      arenaLives: 3,
+      startingGoldBonus: 0,
+      shopDiscountPercent: 0,
+    },
+    starterDeck: [...WARLORD_DECK],
+    intendedStrength: 'High HP and wins attrition wars.',
+    intendedWeakness: 'Slow to close short fights.',
+    playable: true,
+  },
 ] as const
 
 /** Shown in class select UI — not playable, no unlock grind. */
@@ -645,6 +1026,10 @@ export function getClassDefinition(classId: ClassId): ClassDefinition {
 
 export function getPlayableClasses(): ClassDefinition[] {
   return [...CLASS_REGISTRY]
+}
+
+export function getPlayableClassCount(): number {
+  return CLASS_REGISTRY.length
 }
 
 export function getClassTeasers(): ClassTeaser[] {

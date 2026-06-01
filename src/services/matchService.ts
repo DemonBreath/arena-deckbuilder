@@ -1,8 +1,14 @@
 import { logOnlineError } from '../lib/onlineLog'
 import { subscribePostgresChanges } from '../lib/realtimeSubscription'
 import { getSupabaseClient } from '../lib/supabaseClient'
-import { grantByeGold } from './arenaService'
+import {
+  countActivePlayers,
+  ensureFinalDuelLobby,
+  grantByeGold,
+} from './arenaService'
+import { resolveArenaPhase } from '../game/arenaPhase'
 import { fetchLobby, fetchLobbyPlayers } from './lobbyService'
+import { isFinalDuelLobby } from '../types/lobby'
 import {
   fetchMatchWithBattle,
   mapMatchWithBattle,
@@ -76,7 +82,30 @@ export async function createMatchPairingsFromLobby(
     throw new Error('At least 2 ready players are required to start a match.')
   }
 
-  const { pairs, bye } = pairReadyPlayers(readyPlayers)
+  const activeCount = countActivePlayers(players)
+  let lobby = await fetchLobby(lobbyId)
+  if (activeCount === 2) {
+    lobby = (await ensureFinalDuelLobby(lobbyId, players)) ?? lobby
+  }
+
+  const arenaPhase = resolveArenaPhase(activeCount)
+  const inFinalDuel = lobby ? isFinalDuelLobby(lobby) : false
+  const nextFinalGame =
+    inFinalDuel && lobby
+      ? lobby.finalDuelP1Wins + lobby.finalDuelP2Wins + 1
+      : null
+
+  let pairs: [LobbyPlayer, LobbyPlayer][]
+  let bye: LobbyPlayer | null
+
+  if (inFinalDuel && readyPlayers.length === 2) {
+    pairs = [[readyPlayers[0], readyPlayers[1]]]
+    bye = null
+  } else {
+    const paired = pairReadyPlayers(readyPlayers)
+    pairs = paired.pairs
+    bye = paired.bye
+  }
 
   await supabase.from('lobby_pairing_byes').delete().eq('lobby_id', lobbyId)
 
@@ -90,6 +119,8 @@ export async function createMatchPairingsFromLobby(
     status: 'waiting',
     battle_state: null,
     state_version: 0,
+    arena_phase: arenaPhase,
+    final_duel_game: inFinalDuel ? nextFinalGame : null,
   }))
 
   let matches: PvpMatch[] = []
@@ -350,6 +381,7 @@ export async function resolvePlayerAssignment(
   | { type: 'none' }
   | { type: 'spectator' }
   | { type: 'shop' }
+  | { type: 'arena_draft' }
   | { type: 'champion' }
 > {
   const lobby = await fetchLobby(lobbySession.lobbyId)
@@ -364,6 +396,10 @@ export async function resolvePlayerAssignment(
   }
 
   if (me.eliminated) return { type: 'spectator' }
+
+  if (lobby?.status === 'arena_draft' && !me.eliminated) {
+    return { type: 'arena_draft' }
+  }
 
   if (lobby?.status === 'shop' && !me.shopDone) {
     return { type: 'shop' }

@@ -1,12 +1,13 @@
 import { getCard } from '../game/cardDatabase'
 import { getOpponent } from '../game/opponentDatabase'
-import { getClassDefinition } from '../game/classDatabase'
+import { resolveClassIdentity } from '../game/classIdentity'
 import {
   getCurrentArenaOpponentName,
   getEnemyIntent,
   getSoloPlayerMaxEnergy,
   getSoloPlayerMaxHp,
   isBattleActive,
+  runIdentity,
   type GameState,
 } from '../game/gameState'
 import { BattleLogPanel } from './BattleLogPanel'
@@ -14,6 +15,8 @@ import { CardButton } from './CardButton'
 import { RelicsPanel } from './RelicsPanel'
 import { RunHeader } from './RunHeader'
 import { ClassInfoBadge } from './ClassInfoBadge'
+import { ClassMechanicMeter } from './ClassMechanicMeter'
+import { normalizeMechanicMeter } from '../game/classMechanics'
 
 interface BattleViewProps {
   state: GameState
@@ -34,7 +37,7 @@ export function BattleView({
   const archetype = getOpponent(state.opponentId)
   const arenaOpponentName = getCurrentArenaOpponentName(state)
   const intent = getEnemyIntent(state)
-  const classDef = getClassDefinition(state.classId)
+  const profile = resolveClassIdentity(runIdentity(state))
   const maxHp = getSoloPlayerMaxHp(state)
   const maxEnergy = getSoloPlayerMaxEnergy(state)
 
@@ -83,10 +86,11 @@ export function BattleView({
               <h3>{state.championName}</h3>
               <ClassInfoBadge
                 classId={state.classId}
+                evolutionId={state.evolutionId}
                 showPassiveTooltip
               />
-              <p className="fighter-passive-hint" title={classDef.passive.description}>
-                {classDef.passive.name}: {classDef.passive.description}
+              <p className="fighter-passive-hint" title={profile.passive.description}>
+                {profile.passive.name}: {profile.passive.description}
               </p>
               <p className="hp-bar">
                 <span>HP</span>
@@ -94,6 +98,11 @@ export function BattleView({
                   {Math.max(0, state.playerHp)} / {maxHp}
                 </strong>
               </p>
+              <ClassMechanicMeter
+                classId={state.classId}
+                meter={normalizeMechanicMeter(state.mechanic, state.classId)}
+                compact
+              />
               <p className="stat-line">Block: {state.block}</p>
               <p className="stat-line">
                 Energy: {state.energy} / {maxEnergy}

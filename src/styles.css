@@ -203,6 +203,125 @@ body {
   font-size: 1.25rem;
 }
 
+.class-mechanic-meter {
+  margin: 0 0 0.65rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 8px;
+  background: rgba(12, 16, 28, 0.55);
+  border: 1px solid #3a4568;
+}
+
+.class-mechanic-meter--compact {
+  margin-bottom: 0.5rem;
+  padding: 0.35rem 0.45rem;
+}
+
+.class-mechanic-meter__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.3rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #9aa5c4;
+}
+
+.class-mechanic-meter__name {
+  font-weight: 700;
+  color: #c8d4f0;
+}
+
+.class-mechanic-meter__value {
+  font-variant-numeric: tabular-nums;
+  color: #e8ecf8;
+}
+
+.class-mechanic-meter__track {
+  height: 8px;
+  border-radius: 4px;
+  background: #141a28;
+  overflow: hidden;
+}
+
+.class-mechanic-meter__fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.25s ease;
+  background: linear-gradient(90deg, #4a6a9a 0%, #6a8ec8 100%);
+}
+
+.class-mechanic-meter__fill--charged {
+  box-shadow: 0 0 8px rgba(120, 180, 255, 0.45);
+}
+
+.class-mechanic-meter__fill--resolve {
+  background: linear-gradient(90deg, #3a5a7a 0%, #5a8ab8 100%);
+}
+.class-mechanic-meter__fill--rage {
+  background: linear-gradient(90deg, #7a2a2a 0%, #c84a4a 100%);
+}
+.class-mechanic-meter__fill--combo {
+  background: linear-gradient(90deg, #6a4a1a 0%, #d4a030 100%);
+}
+.class-mechanic-meter__fill--souls {
+  background: linear-gradient(90deg, #3a2a5a 0%, #7a5ab8 100%);
+}
+.class-mechanic-meter__fill--booty {
+  background: linear-gradient(90deg, #5a4a18 0%, #c8a030 100%);
+}
+.class-mechanic-meter__fill--blood {
+  background: linear-gradient(90deg, #5a1020 0%, #b83050 100%);
+}
+.class-mechanic-meter__fill--coin {
+  background: linear-gradient(90deg, #4a5a20 0%, #a8c040 100%);
+}
+.class-mechanic-meter__fill--brew {
+  background: linear-gradient(90deg, #2a5a3a 0%, #58b878 100%);
+}
+.class-mechanic-meter__fill--time {
+  background: linear-gradient(90deg, #2a4a6a 0%, #58a8d8 100%);
+}
+.class-mechanic-meter__fill--ember {
+  background: linear-gradient(90deg, #6a3010 0%, #e87830 100%);
+}
+.class-mechanic-meter__fill--frost {
+  background: linear-gradient(90deg, #2a4a6a 0%, #78c8e8 100%);
+}
+.class-mechanic-meter__fill--faith {
+  background: linear-gradient(90deg, #5a5a28 0%, #d8d060 100%);
+}
+.class-mechanic-meter__fill--edge {
+  background: linear-gradient(90deg, #3a3a48 0%, #9898b8 100%);
+}
+.class-mechanic-meter__fill--prep {
+  background: linear-gradient(90deg, #4a3a28 0%, #c8a060 100%);
+}
+.class-mechanic-meter__fill--scale {
+  background: linear-gradient(90deg, #2a5a38 0%, #58c878 100%);
+}
+.class-mechanic-meter__fill--luck {
+  background: linear-gradient(90deg, #4a2a68 0%, #b878e8 100%);
+}
+.class-mechanic-meter__fill--verse {
+  background: linear-gradient(90deg, #4a3a68 0%, #a878d8 100%);
+}
+.class-mechanic-meter__fill--charge {
+  background: linear-gradient(90deg, #3a4a58 0%, #78b0d8 100%);
+}
+.class-mechanic-meter__fill--focus {
+  background: linear-gradient(90deg, #3a4838 0%, #88b878 100%);
+}
+.class-mechanic-meter__fill--momentum {
+  background: linear-gradient(90deg, #4a3038 0%, #c87888 100%);
+}
+
+.class-mechanic-meter__hint {
+  margin: 0.3rem 0 0;
+  font-size: 0.72rem;
+  color: #7a8498;
+}
+
 .stat-line,
 .fighter-note {
   margin: 0.25rem 0 0;
@@ -370,6 +489,12 @@ body {
 .card-pool-badge--rare {
   background: #3d2e18;
   color: #f0c96a;
+}
+
+.card-pool-badge--signature {
+  background: #1e3a4a;
+  color: #7ec8e8;
+  border: 1px solid #3a6a88;
 }
 
 .card-pool-badge--foreign {
@@ -2488,6 +2613,414 @@ body {
   color: #9aa5c4;
 }
 
+/* —— Class evolution (solo + online post-match) —— */
+.evolution-screen {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 2rem;
+}
+
+.evolution-screen__header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.evolution-screen__eyebrow {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #9aa5c4;
+  margin: 0 0 0.5rem;
+}
+
+.evolution-screen__intro {
+  color: #b8c0d8;
+  max-width: 42rem;
+  margin: 0.75rem auto 0;
+  line-height: 1.5;
+}
+
+.evolution-screen__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.evolution-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  padding: 1rem;
+  text-align: left;
+  background: #1a2035;
+  border: 2px solid #2a3148;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.evolution-card:hover {
+  border-color: #f0c96a;
+  transform: translateY(-2px);
+}
+
+.evolution-card__name {
+  font-size: 1.1rem;
+  color: #f0c96a;
+}
+
+.evolution-card__tagline {
+  font-size: 0.85rem;
+  color: #9aa5c4;
+  margin: 0;
+}
+
+.evolution-card__description {
+  font-size: 0.85rem;
+  color: #b8c0d8;
+  margin: 0.25rem 0;
+  line-height: 1.4;
+}
+
+.evolution-card__passive {
+  width: 100%;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #2a3148;
+  font-size: 0.8rem;
+  color: #d4dae8;
+}
+
+.evolution-card__passive span {
+  display: block;
+  font-weight: 700;
+  color: #f0c96a;
+  margin-bottom: 0.25rem;
+}
+
+.evolution-card__passive p {
+  margin: 0;
+  line-height: 1.35;
+}
+
+.evolution-card__rewards {
+  font-size: 0.75rem;
+  color: #7dcea0;
+  margin: 0.35rem 0 0;
+}
+
+.evolution-screen__note {
+  text-align: center;
+  font-size: 0.8rem;
+  color: #9aa5c4;
+}
+
+.class-info-badge__base {
+  font-size: 0.7rem;
+  color: #9aa5c4;
+  margin-left: 0.35rem;
+}
+
+.post-match-evolution .evolution-screen {
+  padding: 0;
+}
+
+/* —— Sudden Death arena phase (M23) —— */
+.arena-phase-banner {
+  margin: 0.75rem 0 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 8px;
+  border: 1px solid #2a3148;
+  background: #1a2035;
+}
+
+.arena-phase-banner--compact {
+  margin: 0.5rem 0 0;
+  padding: 0.55rem 0.75rem;
+}
+
+.arena-phase-banner--low {
+  border-color: #b7950b;
+  background: linear-gradient(135deg, #1a2035 0%, #2a2418 100%);
+}
+
+.arena-phase-banner--high {
+  border-color: #e74c3c;
+  background: linear-gradient(135deg, #1a2035 0%, #2a1818 100%);
+}
+
+.arena-phase-banner--final {
+  border-color: #f0c96a;
+  background: linear-gradient(135deg, #1a2035 0%, #2a2818 100%);
+  box-shadow: 0 0 12px rgba(240, 201, 106, 0.15);
+}
+
+.arena-phase-banner__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem 1rem;
+  margin-bottom: 0.35rem;
+}
+
+.arena-phase-banner__phase {
+  font-weight: 700;
+  color: #f0c96a;
+  font-size: 0.95rem;
+}
+
+.arena-phase-banner--final .arena-phase-banner__phase {
+  color: #fff;
+}
+
+.arena-phase-banner__count {
+  font-size: 0.8rem;
+  color: #9aa5c4;
+}
+
+.arena-phase-banner__description {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #b8c0d8;
+  line-height: 1.4;
+}
+
+.arena-phase-banner__warning {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #f5b041;
+}
+
+.arena-phase-banner--high .arena-phase-banner__warning,
+.arena-phase-banner--final .arena-phase-banner__warning {
+  color: #f1948a;
+}
+
+.arena-phase-banner__series {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #f0c96a;
+}
+
+.online-champion-class-title {
+  text-align: center;
+  font-size: 1.1rem;
+  color: #f0c96a;
+  margin: 0.5rem 0 1.25rem;
+}
+
+.online-champion-drafts__list {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+  color: #b8c0d8;
+  line-height: 1.5;
+}
+
+.online-champion-drafts__stacks {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  color: #9aa5c4;
+}
+
+/* —— Arena Draft (M24) —— */
+.arena-draft-screen {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.arena-draft-screen__header h1 {
+  color: #f0c96a;
+  margin-bottom: 0.35rem;
+}
+
+.arena-draft-screen__header p {
+  color: #b8c0d8;
+  line-height: 1.45;
+}
+
+.arena-draft-timer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1rem;
+  padding: 0.75rem 1rem;
+  margin: 1rem 0;
+  background: #1a2035;
+  border: 1px solid #5dade2;
+  border-radius: 8px;
+}
+
+.arena-draft-timer strong {
+  font-size: 1.4rem;
+  color: #5dade2;
+}
+
+.arena-draft-timer__meta {
+  font-size: 0.85rem;
+  color: #9aa5c4;
+}
+
+.arena-draft-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.arena-draft-option {
+  padding: 1rem;
+  background: #1a2035;
+  border: 2px solid #2a3148;
+  border-radius: 8px;
+}
+
+.arena-draft-option--selected {
+  border-color: #5dade2;
+}
+
+.arena-draft-option--winner {
+  border-color: #f0c96a;
+  box-shadow: 0 0 10px rgba(240, 201, 106, 0.2);
+}
+
+.arena-draft-option__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.arena-draft-option__header strong {
+  color: #f0c96a;
+}
+
+.arena-draft-option__votes {
+  font-size: 0.8rem;
+  color: #7dcea0;
+}
+
+.arena-draft-option__tagline {
+  font-size: 0.85rem;
+  color: #9aa5c4;
+  margin: 0.25rem 0;
+}
+
+.arena-draft-option__description {
+  font-size: 0.85rem;
+  color: #b8c0d8;
+  margin: 0.35rem 0 0.75rem;
+  line-height: 1.4;
+}
+
+.arena-draft-option__you-voted,
+.arena-draft-option__winner-badge {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #5dade2;
+  margin-top: 0.5rem;
+}
+
+.arena-draft-option__winner-badge {
+  color: #f0c96a;
+}
+
+.arena-draft-results--winner {
+  padding: 1rem;
+  margin: 1rem 0;
+  background: linear-gradient(135deg, #1a2035 0%, #2a2818 100%);
+  border: 1px solid #f0c96a;
+  border-radius: 8px;
+}
+
+.arena-draft-results--winner h2 {
+  color: #f0c96a;
+  margin: 0 0 0.35rem;
+}
+
+.arena-draft-waiting {
+  text-align: center;
+  color: #9aa5c4;
+}
+
+.arena-draft-actions {
+  text-align: center;
+  margin-top: 1.5rem;
+}
+
+.arena-draft-last-result {
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  background: #1a2035;
+  border-left: 3px solid #7dcea0;
+  border-radius: 4px;
+}
+
+.arena-draft-last-result h3 {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+  color: #7dcea0;
+}
+
+.active-drafts-panel {
+  margin: 0.75rem 0;
+  padding: 0.75rem 1rem;
+  background: #151a28;
+  border: 1px solid #2a3148;
+  border-radius: 8px;
+}
+
+.active-drafts-panel h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  color: #f0c96a;
+}
+
+.active-drafts-panel__summary {
+  font-size: 0.85rem;
+  color: #9aa5c4;
+  margin: 0 0 0.5rem;
+}
+
+.active-drafts-panel__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.active-drafts-panel__item {
+  padding: 0.35rem 0;
+  border-top: 1px solid #2a3148;
+  font-size: 0.85rem;
+}
+
+.active-drafts-panel__item:first-child {
+  border-top: none;
+}
+
+.active-drafts-panel__stack {
+  margin-left: 0.35rem;
+  color: #f0c96a;
+  font-weight: 700;
+}
+
+.active-drafts-panel__desc {
+  display: block;
+  color: #9aa5c4;
+  font-size: 0.8rem;
+}
+
+.active-drafts-panel__empty {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #9aa5c4;
+}
+
 .class-role-badge {
   display: inline-block;
   padding: 0.15rem 0.45rem;
@@ -2507,6 +3040,43 @@ body {
 .class-role-badge--control { color: #5dade2; }
 .class-role-badge--utility { color: #f7dc6f; }
 .class-role-badge--economy { color: #f4d03f; }
+.class-role-badge--risk-reward { color: #e67e22; }
+.class-role-badge--damage-over-time { color: #e74c3c; }
+.class-role-badge--defensive-control { color: #5dade2; }
+.class-role-badge--tank-support { color: #7dcea0; }
+.class-role-badge--burst { color: #ff6b6b; }
+.class-role-badge--preparation { color: #f8c471; }
+.class-role-badge--scaling { color: #af7ac5; }
+.class-role-badge--high-variance { color: #f39c12; }
+.class-role-badge--resource-generation { color: #58d68d; }
+.class-role-badge--battlefield-commander { color: #aab7b8; }
+
+.class-selection-screen__count {
+  display: inline-block;
+  margin: 0 0 0.5rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: rgba(240, 201, 106, 0.2);
+  color: #f0c96a;
+}
+
+.class-picker-card__passive {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--text-muted, #8b9cb3);
+  text-align: left;
+}
+
+.class-picker-card__stats {
+  font-size: 0.8rem;
+  color: var(--text-muted, #8b9cb3);
+}
 
 .class-difficulty {
   display: inline-block;
@@ -2821,16 +3391,26 @@ body {
 }
 
 .class-detail-panel__passive h3,
+.class-detail-panel__mechanic h3,
 .class-detail-panel__deck h3 {
   margin: 0 0 0.35rem;
   font-size: 0.95rem;
   color: #d8dce8;
 }
 
-.class-detail-panel__passive p {
+.class-detail-panel__passive p,
+.class-detail-panel__mechanic p {
   margin: 0;
   color: #9aa5c4;
   line-height: 1.45;
+}
+
+.class-detail-panel__mechanic {
+  margin-top: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  background: rgba(60, 90, 140, 0.12);
+  border: 1px solid #3a4a68;
 }
 
 .class-detail-panel__deck ul {
@@ -3282,5 +3862,504 @@ body {
 
   .pvp-emote-button {
     flex: 1 1 100%;
+  }
+}
+
+/* —— Scouting & match introduction (Milestone 25) —— */
+.match-intro-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-width: 52rem;
+  margin: 0 auto;
+}
+
+.match-intro-screen__header {
+  text-align: center;
+}
+
+.match-intro-screen__eyebrow {
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted, #8b9cb3);
+  margin: 0 0 0.35rem;
+}
+
+.match-intro-screen h2 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.match-intro-screen__vs {
+  color: var(--text-muted, #8b9cb3);
+  font-weight: 400;
+}
+
+.match-intro-screen__phase {
+  margin: 0.5rem 0 0;
+  color: var(--text-muted, #8b9cb3);
+}
+
+.match-intro-fighters {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.match-intro-fighter {
+  padding: 1rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.match-intro-fighter--you {
+  border-color: rgba(80, 180, 255, 0.35);
+}
+
+.match-intro-fighter--opponent {
+  border-color: rgba(255, 120, 80, 0.35);
+}
+
+.match-intro-fighter__role {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted, #8b9cb3);
+}
+
+.match-intro-fighter__name {
+  font-size: 1.1rem;
+}
+
+.match-intro-fighter__hp {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.match-intro-fighter__hp-max {
+  color: var(--text-muted, #8b9cb3);
+}
+
+.match-intro-fighters__divider {
+  display: flex;
+  align-items: center;
+  font-weight: 700;
+  color: var(--text-muted, #8b9cb3);
+}
+
+.scouting-panel {
+  padding: 1.25rem;
+  border-radius: 12px;
+  border: 1px solid rgba(180, 140, 60, 0.35);
+  background: linear-gradient(
+    145deg,
+    rgba(40, 32, 16, 0.5),
+    rgba(20, 18, 12, 0.6)
+  );
+}
+
+.scouting-panel__header h3 {
+  margin: 0 0 0.25rem;
+}
+
+.scouting-panel__subtitle {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted, #8b9cb3);
+}
+
+.scouting-panel__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  margin-top: 1rem;
+}
+
+.scouting-panel__facts h4,
+.scouting-panel__cards h4,
+.scouting-panel__career h4 {
+  margin: 0 0 0.65rem;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted, #8b9cb3);
+}
+
+.scouting-facts {
+  margin: 0;
+}
+
+.scouting-facts__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.scouting-facts__row dt {
+  color: var(--text-muted, #8b9cb3);
+}
+
+.scouting-facts__row dd {
+  margin: 0;
+  text-align: right;
+}
+
+.scouting-facts__unknown {
+  font-style: italic;
+  color: var(--text-muted, #8b9cb3);
+}
+
+.scouting-top-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.scouting-top-cards__item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.scouting-top-cards__rank {
+  font-size: 0.75rem;
+  color: #c9a227;
+  min-width: 1.5rem;
+}
+
+.scouting-top-cards__count {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--text-muted, #8b9cb3);
+}
+
+.scouting-panel__empty {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-muted, #8b9cb3);
+}
+
+.scouting-panel__career {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.scouting-career-stats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+}
+
+.scouting-career-stats li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: center;
+  padding: 0.5rem;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.scouting-career-stats span {
+  font-size: 0.75rem;
+  color: var(--text-muted, #8b9cb3);
+}
+
+.scouting-panel__disclaimer {
+  margin: 1rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted, #8b9cb3);
+  text-align: center;
+}
+
+.match-intro-screen__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+.match-intro-screen__begin {
+  min-width: 12rem;
+}
+
+@media (max-width: 640px) {
+  .match-intro-fighters {
+    grid-template-columns: 1fr;
+  }
+
+  .match-intro-fighters__divider {
+    justify-content: center;
+  }
+
+  .scouting-panel__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .scouting-career-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* —— Rival system (Milestone 26) —— */
+.rival-badge {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, #8b2030, #c43a4a);
+  color: #fff;
+  box-shadow: 0 0 12px rgba(196, 58, 74, 0.35);
+}
+
+.rival-badge--compact {
+  font-size: 0.65rem;
+  padding: 0.15rem 0.45rem;
+}
+
+.match-intro-screen__header .rival-badge {
+  margin-bottom: 0.5rem;
+}
+
+.rival-intro-panel {
+  padding: 1.25rem 1.5rem;
+  border-radius: 12px;
+  border: 2px solid rgba(196, 58, 74, 0.55);
+  background: linear-gradient(
+    160deg,
+    rgba(60, 16, 24, 0.65),
+    rgba(24, 12, 16, 0.85)
+  );
+  text-align: center;
+}
+
+.rival-intro-panel__banner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.rival-intro-panel__title {
+  margin: 0;
+  font-size: 1.35rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #f0a0a8;
+}
+
+.rival-intro-panel__matchup {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.rival-intro-panel__fighter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 8rem;
+}
+
+.rival-intro-panel__fighter-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted, #8b9cb3);
+}
+
+.rival-intro-panel__fighter--opponent strong {
+  color: #f0a0a8;
+}
+
+.rival-intro-panel__class {
+  font-size: 0.85rem;
+  color: var(--text-muted, #8b9cb3);
+}
+
+.rival-intro-panel__vs {
+  font-weight: 700;
+  color: var(--text-muted, #8b9cb3);
+}
+
+.rival-intro-panel__facts {
+  margin: 0 auto 0.75rem;
+  max-width: 22rem;
+  text-align: left;
+}
+
+.rival-intro-panel__fact {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.rival-intro-panel__fact dt {
+  color: var(--text-muted, #8b9cb3);
+}
+
+.rival-intro-panel__fact dd {
+  margin: 0;
+  text-align: right;
+}
+
+.rival-intro-panel__record {
+  font-size: 1.25rem;
+  color: #f5d080;
+}
+
+.rival-intro-panel__record-hint {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted, #8b9cb3);
+  font-weight: 400;
+}
+
+.rival-intro-panel__stakes {
+  list-style: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  font-size: 0.9rem;
+}
+
+.rival-intro-panel__stake {
+  padding: 0.35rem 0.65rem;
+  border-radius: 6px;
+  margin-bottom: 0.35rem;
+}
+
+.rival-intro-panel__stake--loss {
+  background: rgba(196, 58, 74, 0.2);
+  color: #f0a0a8;
+}
+
+.rival-intro-panel__stake--win {
+  background: rgba(80, 180, 120, 0.15);
+  color: #90d8a8;
+}
+
+.rival-intro-panel__note {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted, #8b9cb3);
+}
+
+.scouting-facts__row--rival dd {
+  color: #f5d080;
+  font-weight: 600;
+}
+
+.rival-history-panel {
+  margin: 1.5rem 0;
+  padding: 1.25rem;
+  border-radius: 10px;
+  border: 1px solid rgba(196, 58, 74, 0.3);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.rival-history-panel h3 {
+  margin: 0 0 1rem;
+  font-size: 1.1rem;
+}
+
+.rival-history-panel--empty .rival-history-panel__empty {
+  margin: 0;
+  color: var(--text-muted, #8b9cb3);
+  font-size: 0.9rem;
+}
+
+.rival-history-panel__run-stats {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+
+.rival-history-panel__run-stats li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.5rem;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  text-align: center;
+}
+
+.rival-history-panel__run-stats span {
+  font-size: 0.75rem;
+  color: var(--text-muted, #8b9cb3);
+}
+
+.rival-history-panel__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.rival-history-panel__item {
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border-left: 3px solid rgba(196, 58, 74, 0.6);
+}
+
+.rival-history-panel__item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.rival-history-panel__record {
+  font-size: 0.95rem;
+  color: #f5d080;
+  font-weight: 600;
+}
+
+.rival-history-panel__item-meta {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted, #8b9cb3);
+}
+
+@media (max-width: 640px) {
+  .rival-history-panel__run-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .rival-intro-panel__matchup {
+    flex-direction: column;
   }
 }

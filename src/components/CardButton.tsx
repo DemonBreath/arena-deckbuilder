@@ -2,8 +2,10 @@ import { getCard, type CardId } from '../game/cardDatabase'
 import {
   getCardOwnerClass,
   isRareClassCard,
+  isSignatureClassCard,
   isClassSpecificCard,
 } from '../game/classCardPools'
+import { getSignatureCardTooltip } from '../game/signatureCards'
 import { getClassDefinition, type ClassId } from '../game/classDatabase'
 
 interface CardButtonProps {
@@ -34,8 +36,14 @@ export function CardButton({
   const ownerClass = getCardOwnerClass(cardId)
   const isClassCard = isClassSpecificCard(cardId)
   const isRare = isRareClassCard(cardId)
+  const isSignature = isSignatureClassCard(cardId)
   const isOwnClass =
     viewerClassId && ownerClass && viewerClassId === ownerClass
+  const tooltip =
+    getSignatureCardTooltip(cardId) ??
+    (card.mechanicHint
+      ? `${card.description}\n\nMechanic: ${card.mechanicHint}`
+      : card.description)
 
   return (
     <button
@@ -43,19 +51,34 @@ export function CardButton({
       className={`card-button card-button--${variant}${extraClass}`}
       disabled={disabled}
       onClick={onClick}
+      title={tooltip}
     >
       {isClassCard && (
         <span
-          className={`card-pool-badge ${isRare ? 'card-pool-badge--rare' : 'card-pool-badge--class'} ${isOwnClass === false ? 'card-pool-badge--foreign' : ''}`}
+          className={`card-pool-badge ${
+            isSignature
+              ? 'card-pool-badge--signature'
+              : isRare
+                ? 'card-pool-badge--rare'
+                : 'card-pool-badge--class'
+          } ${isOwnClass === false ? 'card-pool-badge--foreign' : ''}`}
           title={
-            isRare
-              ? `Rare ${ownerClass ? getClassDefinition(ownerClass).name : ''} card`
-              : ownerClass
-                ? `${getClassDefinition(ownerClass).name} class card`
-                : 'Class card'
+            isSignature
+              ? `Signature ${ownerClass ? getClassDefinition(ownerClass).name : ''} card`
+              : isRare
+                ? `Rare ${ownerClass ? getClassDefinition(ownerClass).name : ''} card`
+                : ownerClass
+                  ? `${getClassDefinition(ownerClass).name} class card`
+                  : 'Class card'
           }
         >
-          {isRare ? 'Rare class' : ownerClass ? getClassDefinition(ownerClass).name : 'Class'}
+          {isSignature
+            ? 'Signature'
+            : isRare
+              ? 'Rare class'
+              : ownerClass
+                ? getClassDefinition(ownerClass).name
+                : 'Class'}
         </span>
       )}
       <span className="card-button__name">{card.name}</span>

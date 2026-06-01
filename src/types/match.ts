@@ -1,3 +1,4 @@
+import type { ArenaPhase } from '../game/arenaPhase'
 import type { PvpBattleState } from '../game/pvpBattleState'
 
 export type MatchStatus = 'waiting' | 'active' | 'completed'
@@ -17,6 +18,9 @@ export interface PvpMatch {
   createdAt: string
   turnStartAt: string | null
   battleStartedAt: string | null
+  arenaPhase: ArenaPhase
+  /** Game number in a final-duel series (1–3), if applicable. */
+  finalDuelGame: number | null
 }
 
 export interface OnlineMatchSession {

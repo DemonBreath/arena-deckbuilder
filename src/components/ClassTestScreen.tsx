@@ -12,8 +12,10 @@ interface ClassTestScreenProps {
   onBack: () => void
 }
 
+import { roleToCssSlug, type ClassRole } from '../game/classDatabase'
+
 function roleClassName(role: string): string {
-  return `class-role-badge class-role-badge--${role.toLowerCase()}`
+  return `class-role-badge class-role-badge--${roleToCssSlug(role as ClassRole)}`
 }
 
 export function ClassTestScreen({

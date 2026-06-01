@@ -49,6 +49,8 @@ interface UseOnlineLobbyOptions {
 
   onEnterShop: () => void
 
+  onEnterArenaDraft: () => void
+
   onChampion: () => void
 
 }
@@ -97,6 +99,8 @@ export function useOnlineLobby(
 
       onEnterShop,
 
+      onEnterArenaDraft,
+
       onChampion,
 
     } = optionsRef.current
@@ -122,6 +126,10 @@ export function useOnlineLobby(
       } else if (assignment.type === 'shop') {
 
         onEnterShop()
+
+      } else if (assignment.type === 'arena_draft') {
+
+        onEnterArenaDraft()
 
       } else if (assignment.type === 'champion') {
 

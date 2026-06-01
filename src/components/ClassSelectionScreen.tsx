@@ -7,11 +7,14 @@ import {
   getClassDefinition,
   getClassFilterRoles,
   getClassTeasers,
+  getPlayableClassCount,
   getPlayableClasses,
+  roleToCssSlug,
   type ClassDefinition,
   type ClassId,
   type ClassRole,
 } from '../game/classDatabase'
+import { getMechanicDefinition } from '../game/classMechanics'
 
 interface ClassSelectionScreenProps {
   selectedClassId: ClassId
@@ -27,7 +30,7 @@ type RoleFilter = typeof ALL_ROLES | ClassRole
 type ViewMode = 'compare' | 'detail'
 
 function roleClassName(role: ClassRole): string {
-  return `class-role-badge class-role-badge--${role.toLowerCase()}`
+  return `class-role-badge class-role-badge--${roleToCssSlug(role)}`
 }
 
 function difficultyClassName(difficulty: string): string {
@@ -52,7 +55,12 @@ function ClassPickerCard({
     >
       <span className={roleClassName(definition.role)}>{definition.role}</span>
       <strong className="class-picker-card__name">{definition.name}</strong>
-      <span className="class-picker-card__hp">{definition.stats.maxHp} HP</span>
+      <span className="class-picker-card__stats">
+        {definition.stats.maxHp} HP · {definition.stats.turnEnergy} energy
+      </span>
+      <span className="class-picker-card__passive" title={definition.passive.description}>
+        {definition.passive.name}: {definition.passive.description}
+      </span>
     </button>
   )
 }
@@ -60,6 +68,7 @@ function ClassPickerCard({
 function ClassDetailPanel({ definition }: { definition: ClassDefinition }) {
   const preview = formatDeckPreview(definition.starterDeck)
   const goldLabel = formatClassGoldLabel(definition.id)
+  const mechanic = getMechanicDefinition(definition.id)
 
   return (
     <div className="class-detail-panel">
@@ -101,6 +110,11 @@ function ClassDetailPanel({ definition }: { definition: ClassDefinition }) {
       <div className="class-detail-panel__passive">
         <h3>Passive — {definition.passive.name}</h3>
         <p>{definition.passive.description}</p>
+      </div>
+
+      <div className="class-detail-panel__mechanic">
+        <h3>Signature — {mechanic.name}</h3>
+        <p>{mechanic.hint}</p>
       </div>
 
       <div className="class-detail-panel__identity">
@@ -216,6 +230,7 @@ export function ClassSelectionScreen({
   championName,
 }: ClassSelectionScreenProps) {
   const playable = getPlayableClasses()
+  const classCount = getPlayableClassCount()
   const teasers = getClassTeasers()
   const roles = getClassFilterRoles()
   const [roleFilter, setRoleFilter] = useState<RoleFilter>(ALL_ROLES)
@@ -231,9 +246,11 @@ export function ClassSelectionScreen({
   return (
     <section className="screen class-selection-screen">
       <header className="class-selection-screen__hero">
+        <p className="class-selection-screen__count">{classCount} playable classes</p>
         <h1>Choose Your Class</h1>
         <p className="class-selection-screen__subtitle">
-          Compare stats side-by-side, then lock in your arena identity for the run.
+          Every class changes how you fight, shop, and survive. Compare roles, passives,
+          and stats — then commit to one identity for the run.
         </p>
         {championName && (
           <p className="class-selection-screen__champion">
@@ -241,7 +258,7 @@ export function ClassSelectionScreen({
           </p>
         )}
         <p className="class-selection-screen__meta">
-          {playable.length} playable classes · no unlocks · pick any time
+          No unlocks · no grind · pick any class every run
         </p>
       </header>
 
@@ -251,7 +268,7 @@ export function ClassSelectionScreen({
           className={`class-selection-view-btn ${viewMode === 'compare' ? 'class-selection-view-btn--active' : ''}`}
           onClick={() => setViewMode('compare')}
         >
-          Compare all
+          Compare all ({classCount})
         </button>
         <button
           type="button"
@@ -268,7 +285,7 @@ export function ClassSelectionScreen({
           className={`class-selection-filter ${roleFilter === ALL_ROLES ? 'class-selection-filter--active' : ''}`}
           onClick={() => setRoleFilter(ALL_ROLES)}
         >
-          All
+          All ({classCount})
         </button>
         {roles.map((role) => (
           <button
@@ -313,17 +330,17 @@ export function ClassSelectionScreen({
             {selected.deckStyle}
           </span>
           <p title={selected.passive.description}>
-            {selected.passive.name}: {selected.passive.description}
+            <strong>{selected.passive.name}:</strong> {selected.passive.description}
           </p>
         </div>
       )}
 
       {teasers.length > 0 && (
         <section className="class-teasers-section" aria-label="Coming later">
-          <h2>Coming later</h2>
+          <h2>Class #{classCount + 1}+ coming later</h2>
           <p className="class-teasers-section__hint">
-            More classes will join the roster in future updates — not locked behind
-            progression.
+            The roster scales to 30+ classes — these teasers show what is next, not
+            locked content.
           </p>
           <div className="class-teasers-grid">
             {teasers.map((teaser) => (
@@ -343,7 +360,7 @@ export function ClassSelectionScreen({
           Back
         </button>
         <button type="button" className="primary-button" onClick={onConfirm}>
-          {confirmLabel}
+          {confirmLabel} as {selected.name}
         </button>
       </div>
     </section>

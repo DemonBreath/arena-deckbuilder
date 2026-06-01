@@ -1,10 +1,16 @@
 import { getCard, STARTER_DECK, type CardId } from './cardDatabase'
-import { resolveCardEffect, cardCountsAsAttack } from './cardEffects'
+import {
+  resolveCardEffect,
+  cardCountsAsAttack,
+  cardCountsAsStrike,
+} from './cardEffects'
 import { getAllClassCardIds } from './classCardPools'
 import {
   applyClassPostCardEffects,
   formatClassPassiveLog,
   getClassBonusDamage,
+  getClassExtraTurnEnergy,
+  getClassFirstTurnBlockBonus,
   getClassOpeningEnergyBonus,
   getClassTurnHandSize,
   getClassTurnStartBlock,
@@ -13,11 +19,46 @@ import {
 } from './classPassives'
 import {
   DEFAULT_CLASS_ID,
-  getClassMaxHp,
-  getClassTurnEnergy,
   isClassId,
   type ClassId,
 } from './classDatabase'
+import {
+  createClassIdentity,
+  getPlayerMaxHp,
+  getPlayerTurnEnergy,
+  resolveClassIdentity,
+  type PlayerClassIdentity,
+} from './classIdentity'
+import { parseEvolutionId, type EvolutionId } from './classEvolutions'
+import {
+  applyArenaStartingHp,
+  getArenaPhaseConfig,
+  type ArenaPhase,
+} from './arenaPhase'
+import {
+  stackArenaDraftEffects,
+  type ArenaDraftId,
+  type StackedArenaDraftEffects,
+} from './arenaDrafts'
+import {
+  applyMechanicAfterCardPlay,
+  applyMechanicOnEndTurn,
+  applyMechanicOnTurnStart,
+  cardCountsAsGuard,
+  createInitialMechanicMeter,
+  formatMechanicLogSuffix,
+  getMechanicCombatModifiers,
+  normalizeMechanicMeter,
+} from './classMechanics'
+import {
+  applySignatureMechanicToMeter,
+  isSignatureMechanicCard,
+} from './signatureCards'
+import type {
+  CardEffectResult,
+  SignatureCardEffectResult,
+} from './cardEffects'
+import type { ClassMechanicMeter } from '../types/classMechanic'
 
 export const PVP_MAX_HP = 30
 export const PVP_STARTING_ENERGY = 3
@@ -99,6 +140,7 @@ export interface PvpPlayerBattleState {
   playerId: string
   championName: string
   classId: ClassId
+  evolutionId?: EvolutionId | null
   maxHp: number
   hp: number
   block: number
@@ -112,6 +154,8 @@ export interface PvpPlayerBattleState {
   attacksPlayedThisTurn: number
   /** Turns this player has started (for opening-tempo passives). */
   turnsTaken: number
+  /** Signature class resource meter (Resolve, Rage, Combo, …). */
+  mechanic: ClassMechanicMeter
 }
 
 export interface PvpBattleCombatant {
@@ -119,11 +163,14 @@ export interface PvpBattleCombatant {
   championName: string
   deck?: CardId[]
   classId?: ClassId
+  evolutionId?: EvolutionId | null
 }
 
 export interface PvpPlayerMatchStats {
   damageDealt: number
+  damageTaken: number
   cardsPlayed: number
+  cardPlayCounts: Partial<Record<CardId, number>>
 }
 
 export interface PvpBattleEmote {
@@ -159,6 +206,10 @@ export interface PvpBattleState {
   message: string
   phase: PvpBattlePhase
   winnerSlot: PlayerSlot | null
+  /** Arena rules active for this match (sudden death / final duel). */
+  arenaPhase?: ArenaPhase
+  activeDraftIds?: ArenaDraftId[]
+  arenaDraftEffects?: StackedArenaDraftEffects
 }
 
 export type PvpBattleAction =
@@ -170,6 +221,9 @@ export interface PvpBattleViewPlayer {
   playerId: string
   championName: string
   classId: ClassId
+  evolutionId: EvolutionId | null
+  classTitle: string
+  passiveDescription: string
   maxHp: number
   hp: number
   block: number
@@ -179,6 +233,7 @@ export interface PvpBattleViewPlayer {
   discardCount: number
   handSize: number
   hand: CardId[] | null
+  mechanic: ClassMechanicMeter
 }
 
 export interface PvpBattleView {
@@ -227,7 +282,28 @@ export interface SpectatorBattleView {
   isCompleted: boolean
 }
 
-const EMPTY_STATS: PvpPlayerMatchStats = { damageDealt: 0, cardsPlayed: 0 }
+const EMPTY_STATS: PvpPlayerMatchStats = {
+  damageDealt: 0,
+  damageTaken: 0,
+  cardsPlayed: 0,
+  cardPlayCounts: {},
+}
+
+function normalizeMatchStats(
+  raw: PvpPlayerMatchStats | undefined,
+): PvpPlayerMatchStats {
+  if (!raw) return { ...EMPTY_STATS }
+  return {
+    damageDealt: typeof raw.damageDealt === 'number' ? raw.damageDealt : 0,
+    damageTaken: typeof raw.damageTaken === 'number' ? raw.damageTaken : 0,
+    cardsPlayed: typeof raw.cardsPlayed === 'number' ? raw.cardsPlayed : 0,
+    cardPlayCounts: raw.cardPlayCounts ?? {},
+  }
+}
+
+function pvpPlayerIdentity(player: PvpPlayerBattleState): PlayerClassIdentity {
+  return createClassIdentity(player.classId, player.evolutionId ?? null)
+}
 
 function shuffle<T>(items: T[]): T[] {
   const copy = [...items]
@@ -245,15 +321,19 @@ function normalizeCombatantPlayer(
     player.classId && isClassId(player.classId)
       ? player.classId
       : DEFAULT_CLASS_ID
+  const evolutionId = parseEvolutionId(player.evolutionId)
+  const identity = createClassIdentity(classId, evolutionId)
   const maxHp =
-    typeof player.maxHp === 'number' ? player.maxHp : getClassMaxHp(classId)
+    typeof player.maxHp === 'number' ? player.maxHp : getPlayerMaxHp(identity)
   return {
     ...player,
     classId,
+    evolutionId,
     maxHp,
     strikesPlayedThisTurn: player.strikesPlayedThisTurn ?? 0,
     attacksPlayedThisTurn: player.attacksPlayedThisTurn ?? 0,
     turnsTaken: player.turnsTaken ?? 0,
+    mechanic: normalizeMechanicMeter(player.mechanic, classId),
   }
 }
 
@@ -262,9 +342,9 @@ export function normalizePvpBattleState(state: PvpBattleState): PvpBattleState {
     ...state,
     player1: normalizeCombatantPlayer(state.player1),
     player2: normalizeCombatantPlayer(state.player2),
-    stats: state.stats ?? {
-      player1: { ...EMPTY_STATS },
-      player2: { ...EMPTY_STATS },
+    stats: {
+      player1: normalizeMatchStats(state.stats?.player1),
+      player2: normalizeMatchStats(state.stats?.player2),
     },
     emote1: state.emote1 ?? null,
     emote2: state.emote2 ?? null,
@@ -337,18 +417,41 @@ function drawCardsForPlayer(
 function beginTurn(state: PvpBattleState, slot: PlayerSlot): PvpBattleState {
   const player = normalizeCombatantPlayer(getPlayer(state, slot))
   const turnNumber = player.turnsTaken + 1
-  const openingBonus = getClassOpeningEnergyBonus(player.classId, turnNumber)
-  const startBlock = getClassTurnStartBlock(player.classId)
+  const identity = pvpPlayerIdentity(player)
+  const draftFx = state.arenaDraftEffects
+  const openingBonus = getClassOpeningEnergyBonus(identity, turnNumber)
+  const extraEnergy = getClassExtraTurnEnergy(identity, turnNumber)
+  let startBlock =
+    getClassTurnStartBlock(identity) +
+    getClassFirstTurnBlockBonus(identity, turnNumber)
+  if (turnNumber === 1 && draftFx && draftFx.turnStartBlockBonus > 0) {
+    startBlock += draftFx.turnStartBlockBonus
+  }
+  const mechanicStart = applyMechanicOnTurnStart(
+    player.mechanic,
+    player.classId,
+    turnNumber,
+  )
+  startBlock += mechanicStart.bonusBlock
   let cleared: PvpPlayerBattleState = {
     ...player,
     turnsTaken: turnNumber,
+    mechanic: mechanicStart.meter,
     block: startBlock,
-    energy: getClassTurnEnergy(player.classId) + openingBonus,
+    energy:
+      getPlayerTurnEnergy(identity) +
+      openingBonus +
+      extraEnergy +
+      mechanicStart.bonusEnergy +
+      (draftFx?.turnEnergyBonus ?? 0),
     hand: [],
     strikesPlayedThisTurn: 0,
     attacksPlayedThisTurn: 0,
   }
-  const handSize = getClassTurnHandSize(player.classId)
+  let handSize = getClassTurnHandSize(identity)
+  if (turnNumber === 1 && draftFx && draftFx.turnOneExtraCards > 0) {
+    handSize += draftFx.turnOneExtraCards
+  }
   const drawn = drawCardsForPlayer(cleared, handSize)
   let next = setPlayer(state, slot, drawn)
   if (openingBonus > 0) {
@@ -357,9 +460,15 @@ function beginTurn(state: PvpBattleState, slot: PlayerSlot): PvpBattleState {
       `${player.championName} — Borrowed Moment (+${openingBonus} opening energy).`,
     )
   }
-  const passiveLog = formatClassPassiveLog(player.classId)
+  const passiveLog = formatClassPassiveLog(identity)
   if (passiveLog) {
     next = appendLog(next, `${player.championName} — ${passiveLog}`)
+  }
+  if (mechanicStart.log) {
+    next = appendLog(
+      next,
+      `${player.championName} — ${mechanicStart.log}`,
+    )
   }
   next = appendLog(next, `— ${player.championName}'s turn —`)
   return {
@@ -399,6 +508,7 @@ function resolvePvpCardPlay(
   blockGained: number
   effectKind: 'damage' | 'block' | 'none'
   extraDraws: number
+  cardEffect: CardEffectResult
 } {
   const effect = resolveCardEffect({
     cardId,
@@ -409,6 +519,7 @@ function resolvePvpCardPlay(
     enemyHp: targetHp,
     enemyBlock: targetBlock,
     relics: [],
+    mechanic: attacker.mechanic,
   })
 
   const effectKind: 'damage' | 'block' | 'none' =
@@ -432,6 +543,7 @@ function resolvePvpCardPlay(
     blockGained: effect.blockGained,
     effectKind,
     extraDraws: effect.extraDraws,
+    cardEffect: effect,
   }
 }
 
@@ -455,16 +567,23 @@ export function getPlayerSlot(
 
 function buildCombatant(
   combatant: PvpBattleCombatant,
+  arenaPhase: ArenaPhase = 'normal',
+  draftEffects: StackedArenaDraftEffects | null = null,
 ): PvpPlayerBattleState {
   const classId =
     combatant.classId && isClassId(combatant.classId)
       ? combatant.classId
       : DEFAULT_CLASS_ID
-  const maxHp = getClassMaxHp(classId)
+  const evolutionId = parseEvolutionId(combatant.evolutionId)
+  const identity = createClassIdentity(classId, evolutionId)
+  const baseMaxHp = getPlayerMaxHp(identity)
+  const afterPhaseHp = applyArenaStartingHp(baseMaxHp, arenaPhase)
+  const maxHp = afterPhaseHp + (draftEffects?.maxHpBonus ?? 0)
   return {
     playerId: combatant.id,
     championName: combatant.championName,
     classId,
+    evolutionId,
     maxHp,
     hp: maxHp,
     block: 0,
@@ -475,18 +594,35 @@ function buildCombatant(
     strikesPlayedThisTurn: 0,
     attacksPlayedThisTurn: 0,
     turnsTaken: 0,
+    mechanic: createInitialMechanicMeter(classId),
   }
+}
+
+export interface CreatePvpBattleOptions {
+  arenaPhase?: ArenaPhase
+  /** Log line for final-duel game number, e.g. "Game 2 of 3". */
+  finalDuelGameLabel?: string | null
+  activeDraftIds?: ArenaDraftId[]
 }
 
 export function createInitialPvpBattleState(
   player1: PvpBattleCombatant,
   player2: PvpBattleCombatant,
+  options: CreatePvpBattleOptions = {},
 ): PvpBattleState {
+  const arenaPhase = options.arenaPhase ?? 'normal'
+  const phaseConfig = getArenaPhaseConfig(arenaPhase)
+  const activeDraftIds = options.activeDraftIds ?? []
+  const arenaDraftEffects = stackArenaDraftEffects(activeDraftIds)
+
   const base: PvpBattleState = {
     version: 1,
     activeSlot: 1,
-    player1: buildCombatant(player1),
-    player2: buildCombatant(player2),
+    player1: buildCombatant(player1, arenaPhase, arenaDraftEffects),
+    player2: buildCombatant(player2, arenaPhase, arenaDraftEffects),
+    arenaPhase,
+    activeDraftIds,
+    arenaDraftEffects,
     stats: {
       player1: { ...EMPTY_STATS },
       player2: { ...EMPTY_STATS },
@@ -504,6 +640,29 @@ export function createInitialPvpBattleState(
     base,
     `PvP match — ${player1.championName} vs ${player2.championName}. Player 1 goes first.`,
   )
+
+  if (phaseConfig.startingHpPenalty > 0) {
+    next = appendLog(
+      next,
+      `${phaseConfig.label} — both fighters start at −${phaseConfig.startingHpPenalty} HP.`,
+    )
+  }
+
+  if (options.finalDuelGameLabel) {
+    next = appendLog(next, options.finalDuelGameLabel)
+  }
+
+  if (phaseConfig.warningMessage && arenaPhase !== 'normal') {
+    next = appendLog(next, phaseConfig.warningMessage)
+  }
+
+  if (activeDraftIds.length > 0) {
+    next = appendLog(
+      next,
+      `Arena drafts active — lobby modifiers apply to both fighters.`,
+    )
+  }
+
   next = beginTurn(next, 1)
   return next
 }
@@ -520,34 +679,45 @@ export function buildPvpBattleView(
   const meRaw = getPlayer(normalized, mySlot)
   const oppRaw = getPlayer(normalized, opponentSlot)
 
+  const meProfile = resolveClassIdentity(pvpPlayerIdentity(meRaw))
+  const oppProfile = resolveClassIdentity(pvpPlayerIdentity(oppRaw))
+
   const me: PvpBattleViewPlayer = {
     playerId: meRaw.playerId,
     championName: meRaw.championName,
     classId: meRaw.classId,
+    evolutionId: meRaw.evolutionId ?? null,
+    classTitle: meProfile.displayTitle,
+    passiveDescription: meProfile.passive.description,
     maxHp: meRaw.maxHp,
     hp: meRaw.hp,
     block: meRaw.block,
     energy: meRaw.energy,
-    maxEnergy: getClassTurnEnergy(meRaw.classId),
+    maxEnergy: getPlayerTurnEnergy(pvpPlayerIdentity(meRaw)),
     drawCount: meRaw.drawPile.length,
     discardCount: meRaw.discardPile.length,
     handSize: meRaw.hand.length,
     hand: [...meRaw.hand],
+    mechanic: meRaw.mechanic,
   }
 
   const opponent: PvpBattleViewPlayer = {
     playerId: oppRaw.playerId,
     championName: oppRaw.championName,
     classId: oppRaw.classId,
+    evolutionId: oppRaw.evolutionId ?? null,
+    classTitle: oppProfile.displayTitle,
+    passiveDescription: oppProfile.passive.description,
     maxHp: oppRaw.maxHp,
     hp: oppRaw.hp,
     block: oppRaw.block,
     energy: oppRaw.energy,
-    maxEnergy: getClassTurnEnergy(oppRaw.classId),
+    maxEnergy: getPlayerTurnEnergy(pvpPlayerIdentity(oppRaw)),
     drawCount: oppRaw.drawPile.length,
     discardCount: oppRaw.discardPile.length,
     handSize: oppRaw.hand.length,
     hand: null,
+    mechanic: oppRaw.mechanic,
   }
 
   const didIWin =
@@ -579,19 +749,24 @@ export function buildPvpBattleView(
 
 function toSpectatorPlayer(player: PvpPlayerBattleState): PvpBattleViewPlayer {
   const normalized = normalizeCombatantPlayer(player)
+  const profile = resolveClassIdentity(pvpPlayerIdentity(normalized))
   return {
     playerId: normalized.playerId,
     championName: normalized.championName,
     classId: normalized.classId,
+    evolutionId: normalized.evolutionId ?? null,
+    classTitle: profile.displayTitle,
+    passiveDescription: profile.passive.description,
     maxHp: normalized.maxHp,
     hp: normalized.hp,
     block: normalized.block,
     energy: normalized.energy,
-    maxEnergy: getClassTurnEnergy(normalized.classId),
+    maxEnergy: getPlayerTurnEnergy(pvpPlayerIdentity(normalized)),
     drawCount: normalized.drawPile.length,
     discardCount: normalized.discardPile.length,
     handSize: normalized.hand.length,
     hand: null,
+    mechanic: normalized.mechanic,
   }
 }
 
@@ -718,18 +893,16 @@ function applyPlayCard(
   const discardPile = [...attacker.discardPile, cardId]
   const energy = attacker.energy - card.cost
 
-  const bonusDamage = getClassBonusDamage({
-    classId: attacker.classId,
-    cardId,
-    strikesPlayedThisTurn: attacker.strikesPlayedThisTurn,
-    attacksPlayedThisTurn: attacker.attacksPlayedThisTurn,
-    handIndex,
-  })
+  const attackerIdentity = pvpPlayerIdentity(attacker)
 
   let effectAttacker: PvpPlayerBattleState = {
     ...attacker,
     energy,
   }
+
+  const isAttack = cardCountsAsAttack(cardId)
+  const isStrike = cardCountsAsStrike(cardId)
+  const isGuard = cardCountsAsGuard(cardId)
 
   const result = resolvePvpCardPlay(
     cardId,
@@ -739,18 +912,64 @@ function applyPlayCard(
   )
 
   let targetHp = result.targetHp
+  let effectAttackerWithBlock = result.attacker
+  if (result.blockGained > 0) {
+    const preMechanicMods = getMechanicCombatModifiers(
+      attacker.mechanic,
+      attacker.classId,
+      cardId,
+      {
+        isAttack,
+        isStrike,
+        isGuard,
+        attacksPlayedThisTurn: attacker.attacksPlayedThisTurn,
+        damageDealt: 0,
+      },
+    )
+    if (preMechanicMods.bonusBlock > 0) {
+      effectAttackerWithBlock = {
+        ...effectAttackerWithBlock,
+        block: effectAttackerWithBlock.block + preMechanicMods.bonusBlock,
+      }
+    }
+  }
+
+  const bonusDamage = getClassBonusDamage({
+    identity: attackerIdentity,
+    cardId,
+    strikesPlayedThisTurn: attacker.strikesPlayedThisTurn,
+    attacksPlayedThisTurn: attacker.attacksPlayedThisTurn,
+    handIndex,
+    turnsTaken: attacker.turnsTaken,
+    defenderHp: defender.hp,
+    defenderMaxHp: defender.maxHp,
+  })
   let targetBlock = result.targetBlock
   let totalDamage = result.damageDealt
 
-  if (bonusDamage > 0 && cardCountsAsAttack(cardId)) {
-    const extra = applyDamageToTarget(targetHp, targetBlock, bonusDamage)
+  const mechanicMods = getMechanicCombatModifiers(
+    attacker.mechanic,
+    attacker.classId,
+    cardId,
+    {
+      isAttack,
+      isStrike,
+      isGuard,
+      attacksPlayedThisTurn: attacker.attacksPlayedThisTurn,
+      damageDealt: totalDamage,
+    },
+  )
+
+  const combinedBonusDamage = bonusDamage + mechanicMods.bonusDamage
+  if (combinedBonusDamage > 0 && isAttack) {
+    const extra = applyDamageToTarget(targetHp, targetBlock, combinedBonusDamage)
     targetHp = extra.hp
     targetBlock = extra.block
     totalDamage += extra.damageDealt
   }
 
   let updatedAttacker: PvpPlayerBattleState = {
-    ...result.attacker,
+    ...effectAttackerWithBlock,
     hand,
     discardPile,
     strikesPlayedThisTurn: shouldIncrementStrikeCounter(cardId)
@@ -762,13 +981,44 @@ function applyPlayCard(
   }
 
   const postCard = applyClassPostCardEffects({
-    classId: attacker.classId,
+    identity: attackerIdentity,
     cardId,
     currentHp: updatedAttacker.hp,
     maxHp: updatedAttacker.maxHp,
     damageDealt: totalDamage,
   })
-  updatedAttacker = { ...updatedAttacker, hp: postCard.hp }
+  let attackerHp = postCard.hp + mechanicMods.heal
+  updatedAttacker = { ...updatedAttacker, hp: Math.min(updatedAttacker.maxHp, attackerHp) }
+
+  const mechanicAfter = isSignatureMechanicCard(cardId)
+    ? {
+        meter: applySignatureMechanicToMeter(
+          attacker.mechanic,
+          result.cardEffect as SignatureCardEffectResult,
+        ),
+        log: undefined as string | undefined,
+      }
+    : applyMechanicAfterCardPlay({
+        classId: attacker.classId,
+        meter: attacker.mechanic,
+        cardId,
+        damageDealt: totalDamage,
+        blockGained: result.blockGained + mechanicMods.bonusBlock,
+        isAttack,
+        isStrike,
+        isGuard,
+        strikesPlayedThisTurn: attacker.strikesPlayedThisTurn,
+        attacksPlayedThisTurn: attacker.attacksPlayedThisTurn,
+        turnNumber: attacker.turnsTaken,
+      })
+  updatedAttacker = { ...updatedAttacker, mechanic: mechanicAfter.meter }
+
+  if (postCard.enemyDamage > 0) {
+    const riposte = applyDamageToTarget(targetHp, targetBlock, postCard.enemyDamage)
+    targetHp = riposte.hp
+    targetBlock = riposte.block
+    totalDamage += riposte.damageDealt
+  }
 
   if (result.extraDraws > 0) {
     updatedAttacker = drawCardsForPlayer(
@@ -783,21 +1033,38 @@ function applyPlayCard(
     block: targetBlock,
   }
 
-  const prevStats = getStats(state, slot)
-  const nextStats: PvpPlayerMatchStats = {
-    damageDealt: prevStats.damageDealt + totalDamage,
-    cardsPlayed: prevStats.cardsPlayed + 1,
+  const prevAttackerStats = getStats(state, slot)
+  const prevDefenderStats = getStats(state, opponentSlot)
+  const nextAttackerStats: PvpPlayerMatchStats = {
+    ...prevAttackerStats,
+    damageDealt: prevAttackerStats.damageDealt + totalDamage,
+    cardsPlayed: prevAttackerStats.cardsPlayed + 1,
+    cardPlayCounts: {
+      ...prevAttackerStats.cardPlayCounts,
+      [cardId]: (prevAttackerStats.cardPlayCounts[cardId] ?? 0) + 1,
+    },
+  }
+  const nextDefenderStats: PvpPlayerMatchStats = {
+    ...prevDefenderStats,
+    damageTaken: prevDefenderStats.damageTaken + totalDamage,
   }
 
   let logLine = result.logLine
   if (bonusDamage > 0) {
     logLine += ` (+${bonusDamage} class bonus)`
   }
+  if (mechanicMods.logParts.length > 0) {
+    logLine += formatMechanicLogSuffix(mechanicMods.logParts)
+  }
   logLine += postCard.logSuffix
+  if (mechanicAfter.log) {
+    logLine += ` (${mechanicAfter.log})`
+  }
 
   let next = setPlayer(state, slot, updatedAttacker)
   next = setPlayer(next, opponentSlot, updatedDefender)
-  next = setStats(next, slot, nextStats)
+  next = setStats(next, slot, nextAttackerStats)
+  next = setStats(next, opponentSlot, nextDefenderStats)
   next = {
     ...appendLog(next, `${attacker.championName}: ${logLine}`),
     version: state.version + 1,
@@ -833,8 +1100,13 @@ function applyPlayCard(
 
 function applyEndTurn(state: PvpBattleState, slot: PlayerSlot): PvpBattleState {
   const attacker = getPlayer(state, slot)
-  let next = setPlayer(state, slot, discardHand(attacker))
+  const endMechanic = applyMechanicOnEndTurn(attacker.mechanic, attacker.classId)
+  let ended = { ...attacker, mechanic: endMechanic.meter }
+  let next = setPlayer(state, slot, discardHand(ended))
   next = appendLog(next, `${attacker.championName} ended their turn.`)
+  if (endMechanic.log) {
+    next = appendLog(next, `${attacker.championName} — ${endMechanic.log}`)
+  }
 
   const nextSlot = getOpponentSlot(slot)
   next = {
@@ -877,11 +1149,16 @@ export function applyTurnTimeoutEnd(state: PvpBattleState): PvpBattleState | nul
   if (state.phase !== 'active') return null
   const slot = state.activeSlot
   const attacker = getPlayer(state, slot)
-  let next = setPlayer(state, slot, discardHand(attacker))
+  const endMechanic = applyMechanicOnEndTurn(attacker.mechanic, attacker.classId)
+  let ended = { ...attacker, mechanic: endMechanic.meter }
+  let next = setPlayer(state, slot, discardHand(ended))
   next = appendLog(
     next,
     `${attacker.championName}'s turn timed out — turn ended automatically.`,
   )
+  if (endMechanic.log) {
+    next = appendLog(next, `${attacker.championName} — ${endMechanic.log}`)
+  }
 
   const nextSlot = getOpponentSlot(slot)
   next = {

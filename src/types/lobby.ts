@@ -1,13 +1,22 @@
+import type { ArenaDraftId } from '../game/arenaDrafts'
 import type { CardId } from '../game/cardDatabase'
 import type { ClassId } from '../game/classDatabase'
+import type { EvolutionId } from '../game/classEvolutions'
 import type { RelicId } from '../game/relicDatabase'
+import type { PlayerScoutingStats } from './scouting'
+import type { RivalHistoryMap } from './rivals'
 import { ARENA_MAX_PLAYERS } from '../game/arenaConstants'
+import type {
+  ArenaDraftResultSummary,
+  ArenaDraftVoteSession,
+} from './arenaDraft'
 
 export type LobbyStatus =
   | 'waiting'
   | 'starting'
   | 'in_match'
   | 'shop'
+  | 'arena_draft'
   | 'finished'
 
 export type ReadyState = 'not_ready' | 'ready'
@@ -18,7 +27,21 @@ export interface Lobby {
   status: LobbyStatus
   roundNumber: number
   championPlayerId: string | null
+  finalDuelPlayer1Id: string | null
+  finalDuelPlayer2Id: string | null
+  finalDuelP1Wins: number
+  finalDuelP2Wins: number
+  /** Stacked lobby-wide draft effects (duplicates = stacks). */
+  activeDraftIds: ArenaDraftId[]
+  /** Chronological list of winning drafts (for champion screen). */
+  draftHistory: ArenaDraftId[]
+  draftSession: ArenaDraftVoteSession | null
+  lastDraftResult: ArenaDraftResultSummary | null
   createdAt: string
+}
+
+export function isFinalDuelLobby(lobby: Lobby): boolean {
+  return Boolean(lobby.finalDuelPlayer1Id && lobby.finalDuelPlayer2Id)
 }
 
 export interface LobbyPlayer {
@@ -27,6 +50,9 @@ export interface LobbyPlayer {
   sessionId: string
   championName: string
   classId: ClassId
+  evolutionId: EvolutionId | null
+  scoutingStats: PlayerScoutingStats
+  rivalHistory: RivalHistoryMap
   readyState: ReadyState
   lives: number
   eliminated: boolean

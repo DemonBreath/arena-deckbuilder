@@ -1,7 +1,13 @@
 import { getSupabaseClient } from '../lib/supabaseClient'
+import {
+  isFinalDuelSeriesComplete,
+  resolveArenaPhase,
+} from '../game/arenaPhase'
 import { PVP_BYE_GOLD } from '../game/arenaConstants'
+import { advanceLobbyAfterRound } from './arenaDraftService'
 import { fetchLobby, fetchLobbyPlayers } from './lobbyService'
 import type { Lobby, LobbyPlayer } from '../types/lobby'
+import { isFinalDuelLobby } from '../types/lobby'
 import type { PvpMatch } from '../types/match'
 
 export function getActivePlayers(players: LobbyPlayer[]): LobbyPlayer[] {
@@ -20,21 +26,103 @@ export function findLobbyChampion(
   return null
 }
 
-export async function applyMatchArenaProgression(
-  match: PvpMatch,
+/** Lock in the two finalists when the lobby reaches 2 active players. */
+export async function ensureFinalDuelLobby(
+  lobbyId: string,
+  players: LobbyPlayer[],
+): Promise<Lobby | null> {
+  const supabase = getSupabaseClient()
+  const active = getActivePlayers(players)
+  if (active.length !== 2) return fetchLobby(lobbyId)
+
+  const lobby = await fetchLobby(lobbyId)
+  if (!lobby) return null
+  if (isFinalDuelLobby(lobby)) return lobby
+
+  const { error } = await supabase
+    .from('lobbies')
+    .update({
+      final_duel_player_1_id: active[0].id,
+      final_duel_player_2_id: active[1].id,
+      final_duel_p1_wins: 0,
+      final_duel_p2_wins: 0,
+    })
+    .eq('id', lobbyId)
+
+  if (error) throw new Error(error.message)
+  return fetchLobby(lobbyId)
+}
+
+async function crownChampion(
+  lobbyId: string,
+  championId: string,
 ): Promise<void> {
   const supabase = getSupabaseClient()
-  if (!match.player2Id || !match.winnerPlayerId) return
+  await supabase
+    .from('lobbies')
+    .update({
+      status: 'finished',
+      champion_player_id: championId,
+    })
+    .eq('id', lobbyId)
+}
 
-  const loserId =
-    match.winnerPlayerId === match.player1Id
-      ? match.player2Id
-      : match.player1Id
+async function applyFinalDuelMatchResult(
+  match: PvpMatch,
+  lobby: Lobby,
+  winner: LobbyPlayer,
+  loser: LobbyPlayer,
+): Promise<void> {
+  const supabase = getSupabaseClient()
 
-  const players = await fetchLobbyPlayers(match.lobbyId)
-  const winner = players.find((p) => p.id === match.winnerPlayerId)
-  const loser = players.find((p) => p.id === loserId)
-  if (!winner || !loser) return
+  const winnerIsP1 = winner.id === lobby.finalDuelPlayer1Id
+  const p1Wins = lobby.finalDuelP1Wins + (winnerIsP1 ? 1 : 0)
+  const p2Wins = lobby.finalDuelP2Wins + (winnerIsP1 ? 0 : 1)
+
+  await supabase
+    .from('lobby_players')
+    .update({
+      opponents_defeated: winner.opponentsDefeated + 1,
+      ready: false,
+      shop_done: false,
+    })
+    .eq('id', winner.id)
+
+  await supabase
+    .from('lobby_players')
+    .update({ ready: false, shop_done: false })
+    .eq('id', loser.id)
+
+  if (isFinalDuelSeriesComplete(p1Wins, p2Wins)) {
+    await supabase
+      .from('lobbies')
+      .update({
+        final_duel_p1_wins: p1Wins,
+        final_duel_p2_wins: p2Wins,
+      })
+      .eq('id', match.lobbyId)
+
+    await crownChampion(match.lobbyId, winner.id)
+    return
+  }
+
+  await clearLobbyByes(match.lobbyId)
+
+  await supabase
+    .from('lobbies')
+    .update({
+      status: 'waiting',
+      final_duel_p1_wins: p1Wins,
+      final_duel_p2_wins: p2Wins,
+    })
+    .eq('id', match.lobbyId)
+}
+
+async function applyStandardMatchResult(
+  winner: LobbyPlayer,
+  loser: LobbyPlayer,
+): Promise<void> {
+  const supabase = getSupabaseClient()
 
   const loserLives = Math.max(0, loser.lives - 1)
   const loserEliminated = loserLives <= 0
@@ -57,30 +145,60 @@ export async function applyMatchArenaProgression(
       shop_done: false,
     })
     .eq('id', loser.id)
+}
 
-  const updatedPlayers = await fetchLobbyPlayers(match.lobbyId)
-  const champion = findLobbyChampion(updatedPlayers)
+export async function applyMatchArenaProgression(
+  match: PvpMatch,
+): Promise<void> {
+  if (!match.player2Id || !match.winnerPlayerId) return
 
-  if (champion) {
-    await supabase
-      .from('lobbies')
-      .update({
-        status: 'finished',
-        champion_player_id: champion.id,
-      })
-      .eq('id', match.lobbyId)
+  const loserId =
+    match.winnerPlayerId === match.player1Id
+      ? match.player2Id
+      : match.player1Id
+
+  const players = await fetchLobbyPlayers(match.lobbyId)
+  const winner = players.find((p) => p.id === match.winnerPlayerId)
+  const loser = players.find((p) => p.id === loserId)
+  if (!winner || !loser) return
+
+  let lobby = await fetchLobby(match.lobbyId)
+  if (!lobby) return
+
+  const activeBefore = countActivePlayers(players)
+  if (activeBefore === 2 && !isFinalDuelLobby(lobby)) {
+    lobby = (await ensureFinalDuelLobby(match.lobbyId, players)) ?? lobby
+  }
+
+  if (isFinalDuelLobby(lobby)) {
+    await applyFinalDuelMatchResult(match, lobby, winner, loser)
     return
   }
 
-  const lobby = await fetchLobby(match.lobbyId)
-  const nextRound = (lobby?.roundNumber ?? 1) + 1
+  await applyStandardMatchResult(winner, loser)
+
+  const updatedPlayers = await fetchLobbyPlayers(match.lobbyId)
+  const activeAfter = countActivePlayers(updatedPlayers)
+
+  if (activeAfter === 2) {
+    await ensureFinalDuelLobby(match.lobbyId, updatedPlayers)
+  }
+
+  const champion = findLobbyChampion(updatedPlayers)
+  if (champion) {
+    await crownChampion(match.lobbyId, champion.id)
+    return
+  }
+
+  const currentLobby = await fetchLobby(match.lobbyId)
+  const nextRound = (currentLobby?.roundNumber ?? 1) + 1
 
   await clearLobbyByes(match.lobbyId)
 
-  await supabase
-    .from('lobbies')
-    .update({ status: 'shop', round_number: nextRound })
-    .eq('id', match.lobbyId)
+  const skipDraft = Boolean(
+    currentLobby && isFinalDuelLobby(currentLobby),
+  )
+  await advanceLobbyAfterRound(match.lobbyId, nextRound, skipDraft)
 }
 
 export async function grantByeGold(
@@ -130,9 +248,28 @@ export async function markPlayerShopDone(playerId: string): Promise<void> {
 export async function tryAdvanceLobbyFromShop(lobbyId: string): Promise<Lobby | null> {
   const supabase = getSupabaseClient()
   const players = await fetchLobbyPlayers(lobbyId)
+  const lobby = await fetchLobby(lobbyId)
   const active = getActivePlayers(players)
 
   if (active.length === 0) return fetchLobby(lobbyId)
+
+  if (lobby && isFinalDuelLobby(lobby)) {
+    const allDone = active.every((p) => p.shopDone)
+    if (!allDone) return lobby
+
+    await supabase
+      .from('lobby_players')
+      .update({ shop_done: false })
+      .eq('lobby_id', lobbyId)
+
+    const { error } = await supabase
+      .from('lobbies')
+      .update({ status: 'waiting' })
+      .eq('id', lobbyId)
+
+    if (error) throw new Error(error.message)
+    return fetchLobby(lobbyId)
+  }
 
   const allDone = active.every((p) => p.shopDone)
   if (!allDone) return fetchLobby(lobbyId)
@@ -162,4 +299,11 @@ export async function updatePlayerGold(
     .eq('id', playerId)
 
   if (error) throw new Error(error.message)
+}
+
+/** Arena phase for the lobby based on current active player count. */
+export function getLobbyArenaPhase(players: LobbyPlayer[]): ReturnType<
+  typeof resolveArenaPhase
+> {
+  return resolveArenaPhase(countActivePlayers(players))
 }

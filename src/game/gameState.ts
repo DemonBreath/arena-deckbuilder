@@ -2,25 +2,55 @@ import { getCard, type CardId } from './cardDatabase'
 import { resolveCardEffect, cardCountsAsAttack } from './cardEffects'
 import { generateClassCardOffers } from './classCardPools'
 import {
+  createClassIdentity,
+  getPlayerMaxHp,
+  getPlayerPassive,
+  getPlayerTurnEnergy,
+  resolveClassIdentity,
+  type PlayerClassIdentity,
+} from './classIdentity'
+import {
+  shouldOfferEvolution,
+  type EvolutionId,
+} from './classEvolutions'
+import {
   applyClassPostCardEffects,
   formatClassPassiveLog,
   getClassBonusDamage,
+  getClassExtraTurnEnergy,
+  getClassFirstTurnBlockBonus,
   getClassOpeningEnergyBonus,
   getClassTurnHandSize,
   getClassTurnStartBlock,
+  getClassVictoryGoldBonus,
   shouldIncrementAttackCounter,
   shouldIncrementStrikeCounter,
 } from './classPassives'
 import {
+  applyMechanicAfterCardPlay,
+  applyMechanicOnEndTurn,
+  applyMechanicOnTurnStart,
+  cardCountsAsGuard,
+  createInitialMechanicMeter,
+  formatMechanicLogSuffix,
+  getMechanicCombatModifiers,
+  normalizeMechanicMeter,
+} from './classMechanics'
+import { cardCountsAsStrike } from './cardEffects'
+import type { ClassMechanicMeter } from '../types/classMechanic'
+import {
+  applySignatureMechanicToMeter,
+  isSignatureMechanicCard,
+} from './signatureCards'
+import type { SignatureCardEffectResult } from './cardEffects'
+import {
   DEFAULT_CLASS_ID,
   getClassDefinition,
-  getClassMaxHp,
-  getClassShopPrice,
   getClassStartingGold,
   getClassStarterDeck,
-  getClassTurnEnergy,
   type ClassId,
 } from './classDatabase'
+import { CLASS_CARD_POOLS } from './classCardPools'
 import {
   pickRandomOpponent,
   getOpponent,
@@ -60,6 +90,7 @@ import {
 export type Screen =
   | 'title'
   | 'battle'
+  | 'evolution'
   | 'reward'
   | 'shop'
   | 'gameover'
@@ -76,6 +107,10 @@ export interface GameState {
   screen: Screen
   championName: string
   classId: ClassId
+  /** Permanent for this run — chosen after surviving enough battles. */
+  evolutionId: EvolutionId | null
+  /** True while evolution screen is shown before post-win rewards. */
+  evolutionOfferPending: boolean
   /** Dev class test lab — single training fight, no arena progression. */
   classTestMode: boolean
   playerTurnCount: number
@@ -101,6 +136,8 @@ export interface GameState {
   message: string
   battleWon: boolean | null
   battleLog: string[]
+  /** Signature class resource meter (Resolve, Rage, Combo, …). */
+  mechanic: ClassMechanicMeter
   relics: RelicId[]
   rewardType: RewardType
   rewardCards: CardId[]
@@ -114,6 +151,8 @@ export const INITIAL_STATE: GameState = {
   screen: 'title',
   championName: '',
   classId: DEFAULT_CLASS_ID,
+  evolutionId: null,
+  evolutionOfferPending: false,
   classTestMode: false,
   playerTurnCount: 0,
   strikesPlayedThisTurn: 0,
@@ -138,6 +177,7 @@ export const INITIAL_STATE: GameState = {
   message: '',
   battleWon: null,
   battleLog: [],
+  mechanic: createInitialMechanicMeter(DEFAULT_CLASS_ID),
   relics: [],
   rewardType: 'none',
   rewardCards: [],
@@ -150,6 +190,7 @@ export const INITIAL_STATE: GameState = {
 export type GameAction =
   | { type: 'SET_CHAMPION_NAME'; name: string }
   | { type: 'SET_CLASS'; classId: ClassId }
+  | { type: 'PICK_EVOLUTION'; evolutionId: EvolutionId }
   | { type: 'START_RUN' }
   | { type: 'START_CLASS_TEST' }
   | { type: 'RESET_CLASS_TEST' }
@@ -249,24 +290,43 @@ function drawCards(state: GameState, targetHandSize: number): GameState {
   return { ...next, drawPile, discardPile, hand }
 }
 
+export function runIdentity(state: GameState): PlayerClassIdentity {
+  return createClassIdentity(state.classId, state.evolutionId)
+}
+
 export function getSoloPlayerMaxHp(state: GameState): number {
-  return getClassMaxHp(state.classId)
+  return getPlayerMaxHp(runIdentity(state))
 }
 
 export function getSoloPlayerMaxEnergy(state: GameState): number {
-  return getClassTurnEnergy(state.classId)
+  return getPlayerTurnEnergy(runIdentity(state))
 }
 
 function beginPlayerTurn(state: GameState): GameState {
+  const identity = runIdentity(state)
   const turnNumber = state.playerTurnCount + 1
-  const openingBonus = getClassOpeningEnergyBonus(state.classId, turnNumber)
+  const openingBonus = getClassOpeningEnergyBonus(identity, turnNumber)
+  const extraEnergy = getClassExtraTurnEnergy(identity, turnNumber)
   let next = appendLog(state, '— Your turn —')
-  const startingBlock = getClassTurnStartBlock(state.classId)
+  const mechanicStart = applyMechanicOnTurnStart(
+    normalizeMechanicMeter(state.mechanic, state.classId),
+    state.classId,
+    turnNumber,
+  )
+  const startingBlock =
+    getClassTurnStartBlock(identity) +
+    getClassFirstTurnBlockBonus(identity, turnNumber) +
+    mechanicStart.bonusBlock
   next = {
     ...next,
     playerTurnCount: turnNumber,
+    mechanic: mechanicStart.meter,
     block: startingBlock,
-    energy: getClassTurnEnergy(state.classId) + openingBonus,
+    energy:
+      getPlayerTurnEnergy(identity) +
+      openingBonus +
+      extraEnergy +
+      mechanicStart.bonusEnergy,
     hand: [],
     strikesPlayedThisTurn: 0,
     attacksPlayedThisTurn: 0,
@@ -274,14 +334,17 @@ function beginPlayerTurn(state: GameState): GameState {
   if (openingBonus > 0) {
     next = appendLog(
       next,
-      `${getClassDefinition(state.classId).passive.name} (+${openingBonus} opening energy).`,
+      `${getPlayerPassive(identity).name} (+${openingBonus} opening energy).`,
     )
   }
-  const passiveLog = formatClassPassiveLog(state.classId)
+  const passiveLog = formatClassPassiveLog(identity)
   if (passiveLog) {
     next = appendLog(next, passiveLog)
   }
-  next = drawCards(next, getClassTurnHandSize(state.classId))
+  if (mechanicStart.log) {
+    next = appendLog(next, mechanicStart.log)
+  }
+  next = drawCards(next, getClassTurnHandSize(identity))
   return {
     ...next,
     message: 'Your turn — play cards, then end turn.',
@@ -307,7 +370,12 @@ const CLASS_TEST_DUMMY_HP = 28
 
 function setupClassTestBattle(state: GameState): GameState {
   const classDef = getClassDefinition(state.classId)
-  const shuffled = shuffle([...getClassStarterDeck(state.classId)])
+  const sigPool = CLASS_CARD_POOLS[state.classId].signatureCards
+  const testSig = sigPool.length > 0 ? sigPool[0] : null
+  const shuffled = shuffle([
+    ...getClassStarterDeck(state.classId),
+    ...(testSig ? [testSig] : []),
+  ])
 
   let next: GameState = {
     ...state,
@@ -317,7 +385,7 @@ function setupClassTestBattle(state: GameState): GameState {
     currentArenaContestantId: null,
     opponentId: CLASS_TEST_OPPONENT_ID,
     turtlePhase: 'attack',
-    playerHp: getClassMaxHp(state.classId),
+    playerHp: getPlayerMaxHp(runIdentity(state)),
     enemyHp: CLASS_TEST_DUMMY_HP,
     enemyBlock: 0,
     drawPile: shuffled,
@@ -331,6 +399,7 @@ function setupClassTestBattle(state: GameState): GameState {
     message: 'Class test — Training Dummy. Play cards, then end turn.',
     battleWon: null,
     battleLog: [],
+    mechanic: createInitialMechanicMeter(state.classId),
     relics: [],
     rewardType: 'none',
     rewardCards: [],
@@ -372,7 +441,7 @@ function setupBattle(state: GameState): GameState {
     currentArenaContestantId: arenaOpponent.id,
     opponentId,
     turtlePhase,
-    playerHp: getClassMaxHp(state.classId),
+    playerHp: getPlayerMaxHp(runIdentity(state)),
     enemyHp: archetype.maxHp,
     enemyBlock: 0,
     drawPile: shuffled,
@@ -381,6 +450,7 @@ function setupBattle(state: GameState): GameState {
     block: 0,
     message: 'Your turn — play cards, then end turn.',
     battleWon: null,
+    mechanic: createInitialMechanicMeter(state.classId),
     rewardType: 'none',
     rewardCards: [],
     rewardRelics: [],
@@ -400,12 +470,12 @@ function setupBattle(state: GameState): GameState {
   return applyIronCharmBattleStart(next)
 }
 
-function generateShopOffers(classId: ClassId): CardId[] {
-  return generateClassCardOffers(classId, 3)
+function generateShopOffers(state: GameState): CardId[] {
+  return generateClassCardOffers(state.classId, 3, state.evolutionId)
 }
 
-function generateCardRewards(classId: ClassId): CardId[] {
-  return generateClassCardOffers(classId, 3)
+function generateCardRewards(state: GameState): CardId[] {
+  return generateClassCardOffers(state.classId, 3, state.evolutionId)
 }
 
 function isRelicRewardForDefeats(defeatedCount: number): boolean {
@@ -581,7 +651,8 @@ function resolveBattleEnd(
   const outcome = won ? 'Victory' : 'Defeat'
 
   if (won) {
-    const lastReward = getWinGoldAmount(state.relics)
+    const lastReward =
+      getWinGoldAmount(state.relics) + getClassVictoryGoldBonus(state.classId)
     const gold = state.gold + lastReward
 
     let contestants = markOpponentDefeated(
@@ -618,7 +689,32 @@ function resolveBattleEnd(
     const rewardRelics = useRelicReward
       ? generateRelicOffers(state.relics)
       : []
-    const rewardCards = useRelicReward ? [] : generateCardRewards(state.classId)
+    if (
+      shouldOfferEvolution(
+        state.battleNumber,
+        state.evolutionId,
+        state.classTestMode,
+      )
+    ) {
+      return appendLog(
+        {
+          ...next,
+          screen: 'evolution',
+          evolutionOfferPending: true,
+          lastReward,
+          battleWon: true,
+          rewardType: 'none',
+          rewardCards: [],
+          rewardRelics: [],
+          rewardClaimed: false,
+          message:
+            'You survived the trials — choose how your class will evolve.',
+        },
+        `Evolution available after ${state.battleNumber} victories.`,
+      )
+    }
+
+    const rewardCards = useRelicReward ? [] : generateCardRewards(next)
     const rewardType: RewardType = useRelicReward
       ? rewardRelics.length > 0
         ? 'relics'
@@ -715,7 +811,12 @@ export function canContinueToShop(state: GameState): boolean {
 }
 
 export function getShopPrice(state: GameState): number {
-  return getClassShopPrice(state.classId, getShopCardPrice(state.relics))
+  const profile = resolveClassIdentity(runIdentity(state))
+  const basePrice = getShopCardPrice(state.relics)
+  const discount = profile.stats.shopDiscountPercent
+  if (discount <= 0) return basePrice
+  const multiplier = Math.max(0, 1 - discount / 100)
+  return Math.max(1, Math.floor(basePrice * multiplier))
 }
 
 export function canStartRun(state: GameState): boolean {
@@ -737,6 +838,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ...INITIAL_STATE,
         championName: state.championName,
         classId: state.classId,
+        evolutionId: null,
+        evolutionOfferPending: false,
         classTestMode: false,
       }
     }
@@ -746,6 +849,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ...INITIAL_STATE,
         championName: state.championName,
         classId: state.classId,
+        evolutionId: null,
+        evolutionOfferPending: false,
         classTestMode: false,
       }
     }
@@ -770,7 +875,67 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'SET_CLASS': {
-      return { ...state, classId: action.classId }
+      return {
+        ...state,
+        classId: action.classId,
+        evolutionId: null,
+        evolutionOfferPending: false,
+        mechanic: createInitialMechanicMeter(action.classId),
+      }
+    }
+
+    case 'PICK_EVOLUTION': {
+      if (state.screen !== 'evolution') return state
+
+      const profile = resolveClassIdentity(
+        createClassIdentity(state.classId, action.evolutionId),
+      )
+
+      let next = appendLog(
+        {
+          ...state,
+          evolutionId: action.evolutionId,
+          evolutionOfferPending: false,
+          playerHp: profile.stats.maxHp,
+          message: `Evolved into ${profile.displayName}! ${profile.passive.description}`,
+        },
+        `Champion evolved: ${profile.displayTitle}.`,
+      )
+
+      const defeatedCount = getDefeatedOpponentCount(next.contestants)
+      const useRelicReward = isRelicRewardForDefeats(defeatedCount)
+      const rewardRelics = useRelicReward ? generateRelicOffers(next.relics) : []
+      const rewardCards = useRelicReward ? [] : generateCardRewards(next)
+      const rewardType: RewardType = useRelicReward
+        ? rewardRelics.length > 0
+          ? 'relics'
+          : 'none'
+        : 'cards'
+
+      if (useRelicReward && rewardRelics.length > 0) {
+        next = appendLog(
+          next,
+          `Relic reward — choose 1 of ${rewardRelics.length} relics.`,
+        )
+      } else if (rewardType === 'cards') {
+        next = appendLog(next, 'Card reward — choose 1 of 3 cards.')
+      }
+
+      return {
+        ...next,
+        screen: 'reward',
+        rewardType,
+        rewardCards,
+        rewardRelics,
+        rewardClaimed: rewardType === 'none',
+        battleWon: true,
+        message:
+          rewardType === 'relics'
+            ? 'Choose a relic reward.'
+            : rewardType === 'cards'
+              ? 'Choose a card reward.'
+              : 'Victory! Continue to the shop.',
+      }
     }
 
     case 'START_RUN': {
@@ -783,6 +948,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           ...INITIAL_STATE,
           championName: name,
           classId: state.classId,
+          evolutionId: null,
+          evolutionOfferPending: false,
           screen: 'battle',
           deck: getClassStarterDeck(state.classId),
           gold: getClassStartingGold(state.classId, 0),
@@ -815,23 +982,33 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const discardPile = [...state.discardPile, cardId]
       const energy = state.energy - card.cost
 
+      const identity = runIdentity(state)
+      const isAttack = cardCountsAsAttack(cardId)
+      const isStrike = cardCountsAsStrike(cardId)
+      const isGuard = cardCountsAsGuard(cardId)
+      const mechanicMeter = normalizeMechanicMeter(state.mechanic, state.classId)
+
       const bonusDamage = getClassBonusDamage({
-        classId: state.classId,
+        identity,
         cardId,
         strikesPlayedThisTurn: state.strikesPlayedThisTurn,
         attacksPlayedThisTurn: state.attacksPlayedThisTurn,
         handIndex: action.handIndex,
+        turnsTaken: state.playerTurnCount,
+        defenderHp: state.enemyHp,
+        defenderMaxHp: getOpponent(state.opponentId).maxHp,
       })
 
       const effect = resolveCardEffect({
         cardId,
         playerHp: state.playerHp,
-        playerMaxHp: getClassMaxHp(state.classId),
+        playerMaxHp: getPlayerMaxHp(identity),
         playerBlock: state.block,
         playerEnergy: energy,
         enemyHp: state.enemyHp,
         enemyBlock: state.enemyBlock,
         relics: state.relics,
+        mechanic: mechanicMeter,
       })
 
       let enemyHp = effect.enemyHp
@@ -842,21 +1019,95 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       let logLine = effect.logLine
       let damageDealt = effect.damageDealt
 
-      if (bonusDamage > 0 && cardCountsAsAttack(cardId)) {
-        const extra = applyDamageToEnemy(enemyHp, enemyBlock, bonusDamage)
+      const preMechanicMods = getMechanicCombatModifiers(
+        mechanicMeter,
+        state.classId,
+        cardId,
+        {
+          isAttack,
+          isStrike,
+          isGuard,
+          attacksPlayedThisTurn: state.attacksPlayedThisTurn,
+          damageDealt: 0,
+        },
+      )
+      if (preMechanicMods.bonusBlock > 0) {
+        block += preMechanicMods.bonusBlock
+      }
+
+      const mechanicMods = getMechanicCombatModifiers(
+        mechanicMeter,
+        state.classId,
+        cardId,
+        {
+          isAttack,
+          isStrike,
+          isGuard,
+          attacksPlayedThisTurn: state.attacksPlayedThisTurn,
+          damageDealt,
+        },
+      )
+
+      const combinedBonusDamage = bonusDamage + mechanicMods.bonusDamage
+      if (combinedBonusDamage > 0 && isAttack) {
+        const extra = applyDamageToEnemy(enemyHp, enemyBlock, combinedBonusDamage)
         enemyHp = extra.enemyHp
         enemyBlock = extra.enemyBlock
         damageDealt += extra.damageDealt
-        logLine += ` (+${bonusDamage} class bonus)`
+        if (bonusDamage > 0) {
+          logLine += ` (+${bonusDamage} class bonus)`
+        }
+        if (mechanicMods.logParts.length > 0) {
+          logLine += formatMechanicLogSuffix(mechanicMods.logParts)
+        }
       }
 
       const postCard = applyClassPostCardEffects({
-        classId: state.classId,
+        identity,
         cardId,
         currentHp: playerHp,
-        maxHp: getClassMaxHp(state.classId),
+        maxHp: getPlayerMaxHp(identity),
         damageDealt,
       })
+
+      if (postCard.enemyDamage > 0) {
+        const riposte = applyDamageToEnemy(enemyHp, enemyBlock, postCard.enemyDamage)
+        enemyHp = riposte.enemyHp
+        enemyBlock = riposte.enemyBlock
+        damageDealt += riposte.damageDealt
+      }
+
+      const playerHpAfterHeal = Math.min(
+        getPlayerMaxHp(identity),
+        postCard.hp + mechanicMods.heal,
+      )
+
+      const mechanicAfter = isSignatureMechanicCard(cardId)
+        ? {
+            meter: applySignatureMechanicToMeter(
+              mechanicMeter,
+              effect as SignatureCardEffectResult,
+            ),
+            log: undefined as string | undefined,
+          }
+        : applyMechanicAfterCardPlay({
+            classId: state.classId,
+            meter: mechanicMeter,
+            cardId,
+            damageDealt,
+            blockGained: effect.blockGained + preMechanicMods.bonusBlock,
+            isAttack,
+            isStrike,
+            isGuard,
+            strikesPlayedThisTurn: state.strikesPlayedThisTurn,
+            attacksPlayedThisTurn: state.attacksPlayedThisTurn,
+            turnNumber: state.playerTurnCount,
+          })
+
+      let mechanicLogSuffix = postCard.logSuffix
+      if (mechanicAfter.log) {
+        mechanicLogSuffix += ` (${mechanicAfter.log})`
+      }
 
       let next = appendLog(
         {
@@ -867,7 +1118,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           enemyBlock,
           block,
           energy: energyAfter,
-          playerHp: postCard.hp,
+          playerHp: playerHpAfterHeal,
+          mechanic: mechanicAfter.meter,
           strikesPlayedThisTurn: shouldIncrementStrikeCounter(cardId)
             ? state.strikesPlayedThisTurn + 1
             : state.strikesPlayedThisTurn,
@@ -876,7 +1128,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
             : state.attacksPlayedThisTurn,
           message: `Played ${card.name}.`,
         },
-        logLine + postCard.logSuffix,
+        logLine + mechanicLogSuffix,
       )
 
       if (effect.extraDraws > 0) {
@@ -893,7 +1145,17 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case 'END_TURN': {
       if (!isBattleActive(state)) return state
 
-      let next = discardHand(state)
+      const endMechanic = applyMechanicOnEndTurn(
+        normalizeMechanicMeter(state.mechanic, state.classId),
+        state.classId,
+      )
+      let next = discardHand({
+        ...state,
+        mechanic: endMechanic.meter,
+      })
+      if (endMechanic.log) {
+        next = appendLog(next, endMechanic.log)
+      }
       next = applyEnemyTurn(next)
 
       if (next.playerHp <= 0) {
@@ -958,7 +1220,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         syncRoster({
           ...state,
           screen: 'shop',
-          shopOffers: generateShopOffers(state.classId),
+          shopOffers: generateShopOffers(state),
           rewardType: 'none',
           rewardCards: [],
           rewardRelics: [],

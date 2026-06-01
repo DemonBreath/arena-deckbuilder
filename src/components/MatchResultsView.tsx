@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
+import {
+  shouldOfferEvolution,
+  type EvolutionId,
+} from '../game/classEvolutions'
 import { buildPvpMatchSummary } from '../game/pvpBattleState'
+import { EvolutionSelectionScreen } from './EvolutionSelectionScreen'
 import { useOnlineRunStatus } from '../hooks/useOnlineRunStatus'
 import { logOnlineError } from '../lib/onlineLog'
 import {
@@ -13,6 +18,7 @@ import {
 import {
   claimPostMatchReward,
   loadOnlineRun,
+  pickOnlineEvolution,
   preparePostMatchRewards,
   type OnlineRunState,
 } from '../services/onlineRunService'
@@ -29,7 +35,7 @@ interface MatchResultsViewProps {
   onContinue: () => void
 }
 
-type ResultsStep = 'result' | 'rewards' | 'summary'
+type ResultsStep = 'result' | 'evolution' | 'rewards' | 'summary'
 
 export function MatchResultsView({
   session,
@@ -56,11 +62,13 @@ export function MatchResultsView({
           const local = loadOnlineRun(session.lobbyId, session.sessionId)
           const deck =
             player.deck && player.deck.length > 0 ? player.deck : local.deck
+          const won = match.winnerPlayerId === session.playerId
           const prepared = preparePostMatchRewards(
             session.lobbyId,
             session.sessionId,
             match.id,
             deck,
+            won,
           )
           setRunState(prepared)
           if (prepared.postMatchRewardClaimed) {
@@ -175,6 +183,24 @@ export function MatchResultsView({
   }
 
   const offers = runState.postMatchOffers ?? []
+  const needsEvolution =
+    summary.didIWin &&
+    shouldOfferEvolution(
+      runState.battlesWon,
+      runState.evolutionId,
+      false,
+    )
+
+  const handlePickEvolution = (evolutionId: EvolutionId) => {
+    const updated = pickOnlineEvolution(
+      session.lobbyId,
+      session.sessionId,
+      evolutionId,
+      session.playerId,
+    )
+    setRunState(updated)
+    setStep('rewards')
+  }
 
   return (
     <section className="screen match-results-screen post-match-screen">
@@ -240,9 +266,27 @@ export function MatchResultsView({
           <button
             type="button"
             className="primary-button"
-            onClick={() => setStep('rewards')}
+            onClick={() => setStep(needsEvolution ? 'evolution' : 'rewards')}
           >
-            Choose your reward
+            {needsEvolution ? 'Choose your evolution' : 'Choose your reward'}
+          </button>
+        </div>
+      )}
+
+      {step === 'evolution' && needsEvolution && (
+        <div className="post-match-section post-match-evolution">
+          <EvolutionSelectionScreen
+            baseClassId={session.classId}
+            championName={session.championName}
+            battlesWon={runState.battlesWon}
+            onPick={handlePickEvolution}
+          />
+          <button
+            type="button"
+            className="link-button"
+            onClick={() => setStep('result')}
+          >
+            Back to match result
           </button>
         </div>
       )}

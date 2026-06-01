@@ -6,9 +6,17 @@ create table if not exists public.lobbies (
   id uuid primary key default gen_random_uuid(),
   code text not null unique,
   status text not null default 'waiting'
-    check (status in ('waiting', 'starting', 'in_match', 'shop', 'finished')),
+    check (status in ('waiting', 'starting', 'in_match', 'shop', 'arena_draft', 'finished')),
   round_number int not null default 1,
   champion_player_id uuid references public.lobby_players (id) on delete set null,
+  final_duel_player_1_id uuid references public.lobby_players (id) on delete set null,
+  final_duel_player_2_id uuid references public.lobby_players (id) on delete set null,
+  final_duel_p1_wins int not null default 0,
+  final_duel_p2_wins int not null default 0,
+  active_draft_ids jsonb not null default '[]'::jsonb,
+  draft_history jsonb not null default '[]'::jsonb,
+  draft_session jsonb,
+  last_draft_result jsonb,
   created_at timestamptz not null default now()
 );
 
@@ -27,6 +35,15 @@ create table if not exists public.lobby_players (
   shop_done boolean not null default false,
   deck jsonb,
   relics jsonb not null default '[]'::jsonb,
+  evolution_id text,
+  scouting_stats jsonb not null default '{
+    "matchesWon": 0,
+    "damageDealt": 0,
+    "damageTaken": 0,
+    "cardsPlayed": 0,
+    "cardPlayCounts": {}
+  }'::jsonb,
+  rival_history jsonb not null default '{}'::jsonb,
   joined_at timestamptz not null default now(),
   last_seen_at timestamptz,
   unique (lobby_id, session_id)
@@ -88,7 +105,10 @@ create table if not exists public.matches (
   winner_player_id uuid references public.lobby_players (id) on delete set null,
   created_at timestamptz not null default now(),
   turn_start_at timestamptz,
-  battle_started_at timestamptz
+  battle_started_at timestamptz,
+  arena_phase text not null default 'normal'
+    check (arena_phase in ('normal', 'sudden_death_1', 'sudden_death_2', 'final_duel')),
+  final_duel_game int
 );
 
 create index if not exists matches_lobby_id_idx on public.matches (lobby_id);

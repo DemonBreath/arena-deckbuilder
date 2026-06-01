@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ONLINE_SHOP_CARD_PRICE } from '../game/arenaConstants'
-import { getClassShopPrice } from '../game/classDatabase'
+import { createClassIdentity, resolveClassIdentity } from '../game/classIdentity'
 import { sanitizePvpDeck } from '../game/pvpBattleState'
 import { logOnlineError } from '../lib/onlineLog'
 import {
@@ -25,9 +25,18 @@ export function useOnlineShop(session: OnlineLobbySession | null) {
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
-  const shopPrice = session
-    ? getClassShopPrice(session.classId, ONLINE_SHOP_CARD_PRICE)
-    : ONLINE_SHOP_CARD_PRICE
+  const shopPrice =
+    session && runState
+      ? (() => {
+          const profile = resolveClassIdentity(
+            createClassIdentity(session.classId, runState.evolutionId),
+          )
+          const discount = profile.stats.shopDiscountPercent
+          if (discount <= 0) return ONLINE_SHOP_CARD_PRICE
+          const multiplier = Math.max(0, 1 - discount / 100)
+          return Math.max(1, Math.floor(ONLINE_SHOP_CARD_PRICE * multiplier))
+        })()
+      : ONLINE_SHOP_CARD_PRICE
 
   useEffect(() => {
     if (!session) {

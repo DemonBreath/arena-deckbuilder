@@ -8,6 +8,7 @@ import {
 import { useOnlineConnectivity } from '../hooks/useOnlineConnectivity'
 import { useOnlineRunStatus } from '../hooks/useOnlineRunStatus'
 import { ConnectionStatusBanner } from './ConnectionStatusBanner'
+import type { ArenaPhase } from '../game/arenaPhase'
 import type { OnlineMatchSession } from '../types/match'
 import { BattleLogPanel } from './BattleLogPanel'
 import { CardButton } from './CardButton'
@@ -18,7 +19,8 @@ import { PvpTimerWarnings } from './PvpTimerWarnings'
 import { PvpTurnTimer } from './PvpTurnTimer'
 import { SyncDebugPanel } from './SyncDebugPanel'
 import { ClassInfoBadge } from './ClassInfoBadge'
-import { getClassDefinition } from '../game/classDatabase'
+import { ClassMechanicMeter } from './ClassMechanicMeter'
+import { ActiveArenaDraftsPanel } from './ActiveArenaDraftsPanel'
 
 interface PvpCombatViewProps {
   session: OnlineMatchSession
@@ -30,6 +32,7 @@ interface PvpCombatViewProps {
   stateVersion: number
   turnStartAt: string | null
   opponentLastSeenAt: string | null
+  arenaPhase?: ArenaPhase
   onPlayCard: (handIndex: number) => void
   onSendEmote: (emoteId: PvpEmoteId) => void
   onEndTurn: () => void
@@ -51,6 +54,7 @@ export function PvpCombatView({
   stateVersion,
   turnStartAt,
   opponentLastSeenAt,
+  arenaPhase = 'normal',
   onPlayCard,
   onSendEmote,
   onEndTurn,
@@ -94,15 +98,24 @@ export function PvpCombatView({
       <ConnectionStatusBanner status={connectionStatus} />
       <PvpRunStatusHeader status={runStatus} title="PvP Battle" />
 
+      {runStatus.activeDraftIds.length > 0 && (
+        <ActiveArenaDraftsPanel
+          activeDraftIds={runStatus.activeDraftIds}
+          compact
+        />
+      )}
+
       <PvpTurnTimer
         turnStartAt={turnStartAt}
         isMyTurn={view.isMyTurn}
         battleActive={battleActive}
+        arenaPhase={arenaPhase}
       />
       <PvpTimerWarnings
         turnStartAt={turnStartAt}
         isMyTurn={view.isMyTurn}
         battleActive={battleActive}
+        arenaPhase={arenaPhase}
         opponentLastSeenAt={opponentLastSeenAt}
         opponentName={view.opponent.championName}
       />
@@ -125,14 +138,15 @@ export function PvpCombatView({
               <h3>{view.opponent.championName}</h3>
               <ClassInfoBadge
                 classId={view.opponent.classId}
+                evolutionId={view.opponent.evolutionId}
                 showPassiveTooltip
                 compact
               />
               <p
                 className="fighter-passive-hint"
-                title={getClassDefinition(view.opponent.classId).passive.description}
+                title={view.opponent.passiveDescription}
               >
-                {getClassDefinition(view.opponent.classId).passive.description}
+                {view.opponent.passiveDescription}
               </p>
               <p className="hp-bar">
                 <span>HP</span>
@@ -140,6 +154,11 @@ export function PvpCombatView({
                   {Math.max(0, view.opponent.hp)} / {view.opponent.maxHp}
                 </strong>
               </p>
+              <ClassMechanicMeter
+                classId={view.opponent.classId}
+                meter={view.opponent.mechanic}
+                compact
+              />
               <p className="stat-line">Block: {view.opponent.block}</p>
               <p className="stat-line">
                 Energy: {view.opponent.energy} / {view.opponent.maxEnergy}
@@ -153,14 +172,15 @@ export function PvpCombatView({
               <h3>{view.me.championName}</h3>
               <ClassInfoBadge
                 classId={view.me.classId}
+                evolutionId={view.me.evolutionId}
                 showPassiveTooltip
                 compact
               />
               <p
                 className="fighter-passive-hint"
-                title={getClassDefinition(view.me.classId).passive.description}
+                title={view.me.passiveDescription}
               >
-                {getClassDefinition(view.me.classId).passive.description}
+                {view.me.passiveDescription}
               </p>
               <p className="hp-bar">
                 <span>HP</span>
@@ -168,6 +188,11 @@ export function PvpCombatView({
                   {Math.max(0, view.me.hp)} / {view.me.maxHp}
                 </strong>
               </p>
+              <ClassMechanicMeter
+                classId={view.me.classId}
+                meter={view.me.mechanic}
+                compact
+              />
               <p className="stat-line">Block: {view.me.block}</p>
               <p className="stat-line">
                 Energy: {view.me.energy} / {view.me.maxEnergy}

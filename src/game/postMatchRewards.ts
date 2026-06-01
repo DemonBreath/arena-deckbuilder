@@ -2,6 +2,8 @@ import { getCard, type CardId } from './cardDatabase'
 import { PVP_POST_MATCH_GOLD } from './arenaConstants'
 import { rollClassOfferCard } from './classCardPools'
 import type { ClassId } from './classDatabase'
+import { createClassIdentity } from './classIdentity'
+import type { EvolutionId } from './classEvolutions'
 import { isPvpAllowedCard, sanitizePvpDeck } from './pvpBattleState'
 
 export type PostMatchRewardKind =
@@ -44,8 +46,11 @@ function shuffleKinds(): PostMatchRewardKind[] {
   return kinds.slice(0, 3)
 }
 
-function pickAddCardOffer(classId: ClassId): PostMatchRewardOffer {
-  const cardId = rollClassOfferCard(classId)
+function pickAddCardOffer(
+  classId: ClassId,
+  evolutionId: EvolutionId | null = null,
+): PostMatchRewardOffer {
+  const cardId = rollClassOfferCard(createClassIdentity(classId, evolutionId))
   const card = getCard(cardId)
   return {
     kind: 'add_card',
@@ -103,14 +108,17 @@ function buildOfferForKind(
   kind: PostMatchRewardKind,
   deck: CardId[],
   classId: ClassId,
+  evolutionId: EvolutionId | null,
 ): PostMatchRewardOffer {
   switch (kind) {
     case 'add_card':
-      return pickAddCardOffer(classId)
+      return pickAddCardOffer(classId, evolutionId)
     case 'upgrade_card':
-      return pickUpgradeOffer(deck) ?? pickAddCardOffer(classId)
+      return (
+        pickUpgradeOffer(deck) ?? pickAddCardOffer(classId, evolutionId)
+      )
     case 'remove_card':
-      return pickRemoveOffer(deck) ?? pickAddCardOffer(classId)
+      return pickRemoveOffer(deck) ?? pickAddCardOffer(classId, evolutionId)
     case 'gain_gold':
       return pickGoldOffer()
     default:
@@ -122,10 +130,13 @@ function buildOfferForKind(
 export function generatePostMatchRewardOffers(
   deck: CardId[],
   classId: ClassId,
+  evolutionId: EvolutionId | null = null,
 ): PostMatchRewardOffer[] {
   const sanitized = sanitizePvpDeck(deck)
   const kinds = shuffleKinds()
-  return kinds.map((kind) => buildOfferForKind(kind, sanitized, classId))
+  return kinds.map((kind) =>
+    buildOfferForKind(kind, sanitized, classId, evolutionId),
+  )
 }
 
 export function applyPostMatchReward(

@@ -1,5 +1,13 @@
 import { getCard, type CardId } from './cardDatabase'
 import { getAttackDamageBonus, type RelicId } from './relicDatabase'
+import type { ClassMechanicMeter } from '../types/classMechanic'
+import {
+  isSignatureMechanicCard,
+  resolveSignatureMechanicCard,
+  SIGNATURE_ATTACK_CARD_IDS,
+  SIGNATURE_STRIKE_CARD_IDS,
+  type SignatureCardEffectResult,
+} from './signatureCards'
 
 export interface CardEffectInput {
   cardId: CardId
@@ -10,7 +18,10 @@ export interface CardEffectInput {
   enemyHp: number
   enemyBlock: number
   relics: RelicId[]
+  mechanic?: ClassMechanicMeter
 }
+
+export type { SignatureCardEffectResult }
 
 export interface CardEffectResult {
   playerHp: number
@@ -61,6 +72,13 @@ function dealDamage(
 
 /** Resolve card play for solo and PvP (enemy = opponent). */
 export function resolveCardEffect(input: CardEffectInput): CardEffectResult {
+  if (isSignatureMechanicCard(input.cardId) && input.mechanic) {
+    return resolveSignatureMechanicCard({
+      ...input,
+      mechanic: input.mechanic,
+    })
+  }
+
   const card = getCard(input.cardId)
   const attackBonus = getAttackDamageBonus(input.relics)
   let result: CardEffectResult = {
@@ -545,6 +563,7 @@ export function cardCountsAsAttack(cardId: CardId): boolean {
     'sanguine_strike',
     'essence_drain',
     'blood_feast',
+    ...SIGNATURE_ATTACK_CARD_IDS,
   ]
   return attackIds.includes(cardId)
 }
@@ -553,6 +572,7 @@ export function cardCountsAsStrike(cardId: CardId): boolean {
   return (
     cardId === 'strike' ||
     cardId === 'strike_plus' ||
-    cardId === 'heavy_strike'
+    cardId === 'heavy_strike' ||
+    SIGNATURE_STRIKE_CARD_IDS.includes(cardId)
   )
 }

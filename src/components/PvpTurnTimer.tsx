@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
+import type { ArenaPhase } from '../game/arenaPhase'
+import { getTurnDurationMs } from '../game/arenaPhase'
 import {
-  getTurnSecondsRemaining,
-  TURN_DURATION_MS,
+  getTurnSecondsRemainingForPhase,
   TURN_WARNING_SECONDS,
 } from '../game/pvpTimers'
 
@@ -9,13 +10,16 @@ interface PvpTurnTimerProps {
   turnStartAt: string | null
   isMyTurn: boolean
   battleActive: boolean
+  arenaPhase?: ArenaPhase
 }
 
 export function PvpTurnTimer({
   turnStartAt,
   isMyTurn,
   battleActive,
+  arenaPhase = 'normal',
 }: PvpTurnTimerProps) {
+  const turnDurationMs = getTurnDurationMs(arenaPhase)
   const [nowMs, setNowMs] = useState(Date.now())
 
   useEffect(() => {
@@ -26,7 +30,11 @@ export function PvpTurnTimer({
 
   if (!battleActive || !turnStartAt) return null
 
-  const secondsLeft = getTurnSecondsRemaining(turnStartAt, nowMs)
+  const secondsLeft = getTurnSecondsRemainingForPhase(
+    turnStartAt,
+    arenaPhase,
+    nowMs,
+  )
   if (secondsLeft === null) return null
 
   const urgent = secondsLeft > 0 && secondsLeft <= TURN_WARNING_SECONDS
@@ -48,7 +56,7 @@ export function PvpTurnTimer({
         {expired ? '0:00' : formatCountdown(secondsLeft)}
       </strong>
       <span className="pvp-turn-timer__hint">
-        {Math.round(TURN_DURATION_MS / 1000)}s limit
+        {Math.round(turnDurationMs / 1000)}s limit
         {urgent && !expired && ` — ending in ${secondsLeft}s`}
       </span>
     </div>

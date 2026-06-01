@@ -20,6 +20,8 @@ import { useOnlineConnectivity } from '../hooks/useOnlineConnectivity'
 
 import { useOnlineRunStatus } from '../hooks/useOnlineRunStatus'
 
+import { getArenaDraftDefinition } from '../game/arenaDrafts'
+import { ActiveArenaDraftsPanel } from './ActiveArenaDraftsPanel'
 import { ArenaRosterPanel } from './ArenaRosterPanel'
 
 import { ConnectionStatusBanner } from './ConnectionStatusBanner'
@@ -189,6 +191,22 @@ export function OnlineShopView({ session, onContinue }: OnlineShopViewProps) {
       )}
 
 
+
+      {lobby?.lastDraftResult && (
+        <div className="arena-draft-last-result">
+          <h3>Latest Arena Draft (Round {lobby.lastDraftResult.roundNumber})</h3>
+          <p>
+            <strong>
+              {getArenaDraftDefinition(lobby.lastDraftResult.winnerId).name}
+            </strong>{' '}
+            — {getArenaDraftDefinition(lobby.lastDraftResult.winnerId).description}
+          </p>
+        </div>
+      )}
+
+      {lobby && (
+        <ActiveArenaDraftsPanel activeDraftIds={lobby.activeDraftIds} compact />
+      )}
 
       <p className="online-shop-reward">
         {lastReward > 0 ? `Last reward: +${lastReward} gold — ` : ''}

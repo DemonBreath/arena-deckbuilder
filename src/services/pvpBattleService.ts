@@ -7,9 +7,13 @@ import {
   type PvpBattleState,
 } from '../game/pvpBattleState'
 import { getSupabaseClient } from '../lib/supabaseClient'
+import { parseArenaPhase } from '../game/arenaPhase'
 import { getClassStarterDeck, parseClassId } from '../game/classDatabase'
-import { fetchLobbyPlayers } from './lobbyService'
+import { fetchLobby, fetchLobbyPlayers } from './lobbyService'
+import { loadOnlineRun } from './onlineRunService'
 import { applyMatchArenaProgression } from './arenaService'
+import { recordMatchRivalHistory } from './rivalService'
+import { recordMatchScoutingStats } from './scoutingService'
 import type { PvpMatch } from '../types/match'
 
 export interface MatchBattleRow {
@@ -27,6 +31,8 @@ export interface MatchBattleRow {
   created_at: string
   turn_start_at?: string | null
   battle_started_at?: string | null
+  arena_phase?: string | null
+  final_duel_game?: number | null
 }
 
 function parseBattleState(raw: unknown): PvpBattleState | null {
@@ -50,6 +56,9 @@ export function mapMatchWithBattle(row: MatchBattleRow): PvpMatch {
     createdAt: row.created_at,
     turnStartAt: row.turn_start_at ?? null,
     battleStartedAt: row.battle_started_at ?? null,
+    arenaPhase: parseArenaPhase(row.arena_phase),
+    finalDuelGame:
+      typeof row.final_duel_game === 'number' ? row.final_duel_game : null,
   }
 }
 
@@ -154,18 +163,39 @@ export async function tryInitializePvpBattle(
   const deck2 =
     p2.deck && p2.deck.length > 0 ? p2.deck : getClassStarterDeck(class2)
 
+  const run1 = loadOnlineRun(match.lobbyId, p1.sessionId)
+  const run2 = loadOnlineRun(match.lobbyId, p2.sessionId)
+  const evolution1 = p1.evolutionId ?? run1.evolutionId
+  const evolution2 = p2.evolutionId ?? run2.evolutionId
+
+  const lobbyRow = await fetchLobby(match.lobbyId)
+  const activeDraftIds = lobbyRow?.activeDraftIds ?? []
+
+  const arenaPhase = match.arenaPhase
+  const finalDuelGameLabel =
+    match.finalDuelGame !== null
+      ? `Final Duel — Game ${match.finalDuelGame} (first to 2 wins)`
+      : null
+
   const initial = createInitialPvpBattleState(
     {
       id: p1.id,
       championName: p1.championName,
       deck: deck1,
       classId: class1,
+      evolutionId: evolution1,
     },
     {
       id: p2.id,
       championName: p2.championName,
       deck: deck2,
       classId: class2,
+      evolutionId: evolution2,
+    },
+    {
+      arenaPhase,
+      finalDuelGameLabel,
+      activeDraftIds,
     },
   )
 
@@ -234,7 +264,9 @@ export async function submitPvpBattleAction(
   })
 
   if (updated.status === 'completed' && updated.winnerPlayerId) {
+    await recordMatchScoutingStats(updated)
     await applyMatchArenaProgression(updated)
+    await recordMatchRivalHistory(updated)
   }
 
   return updated

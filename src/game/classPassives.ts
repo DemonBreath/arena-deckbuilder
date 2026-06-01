@@ -1,33 +1,68 @@
 import type { CardId } from './cardDatabase'
+import type { ClassId } from './classDatabase'
 import { cardCountsAsAttack, cardCountsAsStrike } from './cardEffects'
 import {
-  getClassDefinition,
-  type ClassId,
-  type ClassPassiveKind,
-} from './classDatabase'
-import { PVP_HAND_SIZE } from './pvpBattleState'
+  getPlayerPassive,
+  getPlayerPassiveKind,
+  type PlayerClassIdentity,
+} from './classIdentity'
 
 /** Opening-turn bonuses only — not every turn. */
 export function getClassOpeningEnergyBonus(
-  classId: ClassId,
+  identity: PlayerClassIdentity,
   playerTurnNumber: number,
 ): number {
-  if (passiveKind(classId) === 'opening_tempo' && playerTurnNumber === 1) {
-    return 2
+  const kind = getPlayerPassiveKind(identity)
+  if (kind === 'opening_tempo' && playerTurnNumber === 1) return 2
+  if (kind === 'chrono_tempo' && playerTurnNumber === 1) return 3
+  if (kind === 'paradox_tempo' && playerTurnNumber === 1) return 2
+  return 0
+}
+
+/** Extra energy on specific turns (Engineer). */
+export function getClassExtraTurnEnergy(
+  identity: PlayerClassIdentity,
+  playerTurnNumber: number,
+): number {
+  if (
+    getPlayerPassiveKind(identity) === 'engineer_overclock' &&
+    playerTurnNumber > 0 &&
+    playerTurnNumber % 2 === 0
+  ) {
+    return 1
   }
   return 0
 }
 
+/** Bonus block on turn 1 only (Chef). */
+export function getClassFirstTurnBlockBonus(
+  identity: PlayerClassIdentity,
+  playerTurnNumber: number,
+): number {
+  if (playerTurnNumber !== 1) return 0
+  if (getPlayerPassiveKind(identity) === 'chef_prep') return 3
+  return 0
+}
+
+/** Bonus gold after a victory (Pirate). */
+export function getClassVictoryGoldBonus(classId: ClassId): number {
+  return classId === 'pirate' ? 15 : 0
+}
+
 export interface ClassDamageBonusContext {
-  classId: ClassId
+  identity: PlayerClassIdentity
   cardId: CardId
   strikesPlayedThisTurn: number
   attacksPlayedThisTurn: number
   handIndex: number
+  /** Turns this player has started in the current battle. */
+  turnsTaken?: number
+  defenderHp?: number
+  defenderMaxHp?: number
 }
 
 export interface ClassPostCardContext {
-  classId: ClassId
+  identity: PlayerClassIdentity
   cardId: CardId
   currentHp: number
   maxHp: number
@@ -37,6 +72,8 @@ export interface ClassPostCardContext {
 export interface ClassPostCardResult {
   hp: number
   logSuffix: string
+  /** Counterattack damage to enemy (Sentinel, etc.). */
+  enemyDamage: number
 }
 
 function isAttackCard(cardId: CardId): boolean {
@@ -47,40 +84,103 @@ function isStrikeCard(cardId: CardId): boolean {
   return cardCountsAsStrike(cardId)
 }
 
-function passiveKind(classId: ClassId): ClassPassiveKind {
-  return getClassDefinition(classId).passiveKind
+function isGuardCard(cardId: CardId): boolean {
+  return cardId === 'guard' || cardId === 'guard_plus'
 }
 
-export function getClassTurnStartBlock(classId: ClassId): number {
-  switch (passiveKind(classId)) {
+function scalingDamageFromTurns(turnsTaken: number, maxBonus: number): number {
+  return Math.min(maxBonus, Math.max(0, turnsTaken - 1))
+}
+
+export function getClassTurnStartBlock(identity: PlayerClassIdentity): number {
+  switch (getPlayerPassiveKind(identity)) {
     case 'fortify':
-      return 1
     case 'ice_armor':
     case 'paladin_aegis':
+    case 'quartermaster':
+      return 1
+    case 'warden_fortify':
+      return 2
+    case 'sentinel_counter':
+    case 'templar_aegis':
+    case 'juggernaut_brute':
       return 1
     default:
       return 0
   }
 }
 
-export function getClassTurnHandSize(_classId: ClassId): number {
-  return PVP_HAND_SIZE
+export function getClassTurnHandSize(identity: PlayerClassIdentity): number {
+  const kind = getPlayerPassiveKind(identity)
+  if (kind === 'bard_improv') return 6
+  if (identity.baseClassId === 'timekeeper' || kind === 'timekeeper_draw') {
+    return 6
+  }
+  return 5
 }
 
 export function getClassBonusDamage(ctx: ClassDamageBonusContext): number {
-  const kind = passiveKind(ctx.classId)
+  const kind = getPlayerPassiveKind(ctx.identity)
+  const turns = ctx.turnsTaken ?? 1
 
   switch (kind) {
     case 'bloodlust':
-      return ctx.cardId === 'strike' || ctx.cardId === 'heavy_strike' ? 2 : 0
+    case 'executioner_slain':
+      return ctx.cardId === 'strike' || ctx.cardId === 'heavy_strike'
+        ? kind === 'executioner_slain'
+          ? 3
+          : 2
+        : 0
     case 'combo_shot':
       return isStrikeCard(ctx.cardId) && ctx.strikesPlayedThisTurn > 0 ? 2 : 0
     case 'burn_touch':
       return isAttackCard(ctx.cardId) ? 1 : 0
+    case 'infernal_scorch':
+      return isAttackCard(ctx.cardId) ? 2 : 0
     case 'assassin_burst':
-      return isAttackCard(ctx.cardId) && ctx.attacksPlayedThisTurn === 0 ? 2 : 0
+    case 'deadeye_opening':
+    case 'shadow_opening':
+      return isAttackCard(ctx.cardId) && ctx.attacksPlayedThisTurn === 0
+        ? kind === 'shadow_opening'
+          ? 4
+          : kind === 'deadeye_opening'
+            ? 3
+            : 2
+        : 0
+    case 'assassin_healthy': {
+      if (!isAttackCard(ctx.cardId) || ctx.attacksPlayedThisTurn !== 0) return 0
+      let bonus = 2
+      if (
+        ctx.defenderHp !== undefined &&
+        ctx.defenderMaxHp !== undefined &&
+        ctx.defenderMaxHp > 0 &&
+        ctx.defenderHp / ctx.defenderMaxHp > 0.7
+      ) {
+        bonus += 1
+      }
+      return bonus
+    }
     case 'alchemist_potion':
       return isAttackCard(ctx.cardId) && ctx.handIndex % 2 === 0 ? 1 : 0
+    case 'mutagenist_brew':
+      return isAttackCard(ctx.cardId) && ctx.handIndex % 2 === 0 ? 2 : 0
+    case 'juggernaut_brute':
+    case 'paradox_tempo':
+      return isAttackCard(ctx.cardId) ? 1 : 0
+    case 'dragon_knight_siege':
+      return isAttackCard(ctx.cardId)
+        ? scalingDamageFromTurns(turns, 3)
+        : 0
+    case 'warlord_endurance':
+      return isAttackCard(ctx.cardId)
+        ? scalingDamageFromTurns(turns, 4)
+        : 0
+    case 'gambler_lucky':
+      return isAttackCard(ctx.cardId)
+        ? Math.floor(Math.random() * 3)
+        : 0
+    case 'monk_flow':
+      return isAttackCard(ctx.cardId) && ctx.attacksPlayedThisTurn > 0 ? 1 : 0
     default:
       return 0
   }
@@ -89,17 +189,27 @@ export function getClassBonusDamage(ctx: ClassDamageBonusContext): number {
 export function applyClassPostCardEffects(
   ctx: ClassPostCardContext,
 ): ClassPostCardResult {
-  const kind = passiveKind(ctx.classId)
+  const kind = getPlayerPassiveKind(ctx.identity)
   let hp = ctx.currentHp
   const parts: string[] = []
+  let enemyDamage = 0
 
-  if (ctx.cardId === 'guard' || ctx.cardId === 'guard_plus') {
-    if (kind === 'life_drain') {
-      hp = Math.min(ctx.maxHp, hp + 1)
-      parts.push('Life Drain (+1 HP)')
+  if (isGuardCard(ctx.cardId)) {
+    if (kind === 'life_drain' || kind === 'lich_drain') {
+      const heal = kind === 'lich_drain' ? 2 : 1
+      hp = Math.min(ctx.maxHp, hp + heal)
+      parts.push(`Life Drain (+${heal} HP)`)
     } else if (kind === 'paladin_aegis') {
       hp = Math.min(ctx.maxHp, hp + 1)
       parts.push('Aegis (+1 HP)')
+    } else if (kind === 'templar_aegis') {
+      hp = Math.min(ctx.maxHp, hp + 2)
+      parts.push('Holy Aegis (+2 HP)')
+    }
+
+    if (kind === 'sentinel_counter') {
+      enemyDamage = 2
+      parts.push('Riposte (2 damage)')
     }
   }
 
@@ -108,9 +218,20 @@ export function applyClassPostCardEffects(
     parts.push('Lifesteal (+1 HP)')
   }
 
+  if (kind === 'bloodlord_siphon' && ctx.damageDealt > 0) {
+    hp = Math.min(ctx.maxHp, hp + 2)
+    parts.push('Bloodlord (+2 HP)')
+  }
+
+  if (kind === 'nightstalker' && ctx.damageDealt > 0) {
+    hp = Math.min(ctx.maxHp, hp + 1)
+    parts.push('Nightstalker (+1 HP)')
+  }
+
   return {
     hp,
     logSuffix: parts.length > 0 ? ` — ${parts.join(', ')}` : '',
+    enemyDamage,
   }
 }
 
@@ -122,10 +243,10 @@ export function shouldIncrementAttackCounter(cardId: CardId): boolean {
   return isAttackCard(cardId)
 }
 
-export function formatClassPassiveLog(classId: ClassId): string | null {
-  const block = getClassTurnStartBlock(classId)
+export function formatClassPassiveLog(identity: PlayerClassIdentity): string | null {
+  const block = getClassTurnStartBlock(identity)
   if (block > 0) {
-    const name = getClassDefinition(classId).passive.name
+    const name = getPlayerPassive(identity).name
     return `${name} (+${block} block).`
   }
   return null
