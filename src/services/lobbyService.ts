@@ -3,6 +3,7 @@ import { subscribePostgresChanges } from '../lib/realtimeSubscription'
 import { getSupabaseClient, isSupabaseConfigured } from '../lib/supabaseClient'
 import { type CardId } from '../game/cardDatabase'
 import {
+  getClassStartingGold,
   getClassStarterDeck,
   parseClassId,
   type ClassId,
@@ -187,6 +188,7 @@ export async function createOrJoinLobby(
     }
 
     const starterDeck = getClassStarterDeck(classId)
+    const startingGold = getClassStartingGold(classId, 0)
     const { data: inserted, error: insertError } = await supabase
       .from('lobby_players')
       .insert({
@@ -195,6 +197,7 @@ export async function createOrJoinLobby(
         champion_name: trimmedName,
         class_id: classId,
         ready: false,
+        gold: startingGold,
         deck: starterDeck,
         relics: [],
       })

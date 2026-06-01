@@ -1,5 +1,14 @@
 import { getCard, STARTER_DECK, type CardId } from './cardDatabase'
 import {
+  applyClassPostCardEffects,
+  formatClassPassiveLog,
+  getClassBonusDamage,
+  getClassTurnHandSize,
+  getClassTurnStartBlock,
+  shouldIncrementAttackCounter,
+  shouldIncrementStrikeCounter,
+} from './classPassives'
+import {
   DEFAULT_CLASS_ID,
   getClassMaxHp,
   getClassTurnEnergy,
@@ -88,6 +97,8 @@ export interface PvpPlayerBattleState {
   hand: CardId[]
   /** Gunslinger combo tracking within the current turn. */
   strikesPlayedThisTurn: number
+  /** Assassin / tempo tracking for first-attack bonuses. */
+  attacksPlayedThisTurn: number
 }
 
 export interface PvpBattleCombatant {
@@ -228,6 +239,7 @@ function normalizeCombatantPlayer(
     classId,
     maxHp,
     strikesPlayedThisTurn: player.strikesPlayedThisTurn ?? 0,
+    attacksPlayedThisTurn: player.attacksPlayedThisTurn ?? 0,
   }
 }
 
@@ -244,28 +256,6 @@ export function normalizePvpBattleState(state: PvpBattleState): PvpBattleState {
     emote2: state.emote2 ?? null,
     lastEffect: state.lastEffect ?? null,
   }
-}
-
-function isStrikeCard(cardId: CardId): boolean {
-  return cardId === 'strike' || cardId === 'strike_plus' || cardId === 'heavy_strike'
-}
-
-function getClassBonusDamage(
-  classId: ClassId,
-  cardId: CardId,
-  strikesPlayedBefore: number,
-): number {
-  if (classId === 'berserker' && (cardId === 'strike' || cardId === 'heavy_strike')) {
-    return 2
-  }
-  if (
-    classId === 'gunslinger' &&
-    isStrikeCard(cardId) &&
-    strikesPlayedBefore > 0
-  ) {
-    return 3
-  }
-  return 0
 }
 
 function appendLog(state: PvpBattleState, entry: string): PvpBattleState {
@@ -332,17 +322,21 @@ function drawCardsForPlayer(
 
 function beginTurn(state: PvpBattleState, slot: PlayerSlot): PvpBattleState {
   const player = normalizeCombatantPlayer(getPlayer(state, slot))
+  const startBlock = getClassTurnStartBlock(player.classId)
   let cleared: PvpPlayerBattleState = {
     ...player,
-    block: player.classId === 'guardian' ? 2 : 0,
+    block: startBlock,
     energy: getClassTurnEnergy(player.classId),
     hand: [],
     strikesPlayedThisTurn: 0,
+    attacksPlayedThisTurn: 0,
   }
-  const drawn = drawCardsForPlayer(cleared, PVP_HAND_SIZE)
+  const handSize = getClassTurnHandSize(player.classId)
+  const drawn = drawCardsForPlayer(cleared, handSize)
   let next = setPlayer(state, slot, drawn)
-  if (player.classId === 'guardian') {
-    next = appendLog(next, `${player.championName} — Fortify (+2 block).`)
+  const passiveLog = formatClassPassiveLog(player.classId)
+  if (passiveLog) {
+    next = appendLog(next, `${player.championName} — ${passiveLog}`)
   }
   next = appendLog(next, `— ${player.championName}'s turn —`)
   return {
@@ -458,6 +452,7 @@ function buildCombatant(
     discardPile: [],
     hand: [],
     strikesPlayedThisTurn: 0,
+    attacksPlayedThisTurn: 0,
   }
 }
 
@@ -701,11 +696,13 @@ function applyPlayCard(
   const discardPile = [...attacker.discardPile, cardId]
   const energy = attacker.energy - card.cost
 
-  const bonusDamage = getClassBonusDamage(
-    attacker.classId,
+  const bonusDamage = getClassBonusDamage({
+    classId: attacker.classId,
     cardId,
-    attacker.strikesPlayedThisTurn,
-  )
+    strikesPlayedThisTurn: attacker.strikesPlayedThisTurn,
+    attacksPlayedThisTurn: attacker.attacksPlayedThisTurn,
+    handIndex,
+  })
 
   const result = resolvePvpCardPlay(
     cardId,
@@ -731,17 +728,22 @@ function applyPlayCard(
     discardPile,
     energy,
     block: result.attackerBlock,
-    strikesPlayedThisTurn: isStrikeCard(cardId)
+    strikesPlayedThisTurn: shouldIncrementStrikeCounter(cardId)
       ? attacker.strikesPlayedThisTurn + 1
       : attacker.strikesPlayedThisTurn,
+    attacksPlayedThisTurn: shouldIncrementAttackCounter(cardId)
+      ? attacker.attacksPlayedThisTurn + 1
+      : attacker.attacksPlayedThisTurn,
   }
 
-  if (card.block !== undefined && attacker.classId === 'necromancer') {
-    updatedAttacker = {
-      ...updatedAttacker,
-      hp: Math.min(updatedAttacker.maxHp, updatedAttacker.hp + 2),
-    }
-  }
+  const postCard = applyClassPostCardEffects({
+    classId: attacker.classId,
+    cardId,
+    currentHp: updatedAttacker.hp,
+    maxHp: updatedAttacker.maxHp,
+    damageDealt: totalDamage,
+  })
+  updatedAttacker = { ...updatedAttacker, hp: postCard.hp }
 
   const updatedDefender: PvpPlayerBattleState = {
     ...defender,
@@ -759,9 +761,7 @@ function applyPlayCard(
   if (bonusDamage > 0) {
     logLine += ` (+${bonusDamage} class bonus)`
   }
-  if (card.block !== undefined && attacker.classId === 'necromancer') {
-    logLine += ' — Life Drain (+2 HP).'
-  }
+  logLine += postCard.logSuffix
 
   let next = setPlayer(state, slot, updatedAttacker)
   next = setPlayer(next, opponentSlot, updatedDefender)

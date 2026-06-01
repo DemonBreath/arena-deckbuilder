@@ -42,6 +42,7 @@ import {
 } from './services/lobbyService'
 import { PVP_BYE_GOLD } from './game/arenaConstants'
 import {
+  formatClassGoldLabel,
   getClassDefinition,
   type ClassId,
 } from './game/classDatabase'
@@ -654,7 +655,7 @@ function App() {
             Enter the arena, defeat every opponent, and claim the daily crown.
           </p>
           <p className="subtitle">
-            Milestone 18 — choose your class before entering the arena
+            Milestone 19 — 12-class arena roster
           </p>
 
           {onlineAvailable && pendingRejoin && !onlineSession && (
@@ -683,8 +684,14 @@ function App() {
 
           <div className="title-class-summary">
             <span>Selected class</span>
-            <strong>{selectedClass.name}</strong>
+            <strong>
+              {selectedClass.name} — {selectedClass.role}
+            </strong>
+            <p>{selectedClass.tagline}</p>
             <p>{selectedClass.passive.description}</p>
+            {formatClassGoldLabel(selectedClassId) && (
+              <p>{formatClassGoldLabel(selectedClassId)}</p>
+            )}
             <button
               type="button"
               className="secondary-button"

@@ -5,9 +5,20 @@ import {
   type CardId,
 } from './cardDatabase'
 import {
+  applyClassPostCardEffects,
+  formatClassPassiveLog,
+  getClassBonusDamage,
+  getClassTurnHandSize,
+  getClassTurnStartBlock,
+  shouldIncrementAttackCounter,
+  shouldIncrementStrikeCounter,
+} from './classPassives'
+import {
   DEFAULT_CLASS_ID,
   getClassDefinition,
   getClassMaxHp,
+  getClassShopPrice,
+  getClassStartingGold,
   getClassStarterDeck,
   getClassTurnEnergy,
   type ClassId,
@@ -69,6 +80,7 @@ export interface GameState {
   championName: string
   classId: ClassId
   strikesPlayedThisTurn: number
+  attacksPlayedThisTurn: number
   currentArenaContestantId: string | null
   playerHp: number
   enemyHp: number
@@ -103,6 +115,7 @@ export const INITIAL_STATE: GameState = {
   championName: '',
   classId: DEFAULT_CLASS_ID,
   strikesPlayedThisTurn: 0,
+  attacksPlayedThisTurn: 0,
   currentArenaContestantId: null,
   playerHp: PLAYER_MAX_HP,
   enemyHp: 30,
@@ -231,28 +244,6 @@ function drawCards(state: GameState, targetHandSize: number): GameState {
   return { ...next, drawPile, discardPile, hand }
 }
 
-function isStrikeCard(cardId: CardId): boolean {
-  return cardId === 'strike' || cardId === 'strike_plus' || cardId === 'heavy_strike'
-}
-
-function getSoloClassBonusDamage(
-  classId: ClassId,
-  cardId: CardId,
-  strikesPlayedBefore: number,
-): number {
-  if (classId === 'berserker' && (cardId === 'strike' || cardId === 'heavy_strike')) {
-    return 2
-  }
-  if (
-    classId === 'gunslinger' &&
-    isStrikeCard(cardId) &&
-    strikesPlayedBefore > 0
-  ) {
-    return 3
-  }
-  return 0
-}
-
 export function getSoloPlayerMaxHp(state: GameState): number {
   return getClassMaxHp(state.classId)
 }
@@ -263,18 +254,20 @@ export function getSoloPlayerMaxEnergy(state: GameState): number {
 
 function beginPlayerTurn(state: GameState): GameState {
   let next = appendLog(state, '— Your turn —')
-  const startingBlock = state.classId === 'guardian' ? 2 : 0
+  const startingBlock = getClassTurnStartBlock(state.classId)
   next = {
     ...next,
     block: startingBlock,
     energy: getClassTurnEnergy(state.classId),
     hand: [],
     strikesPlayedThisTurn: 0,
+    attacksPlayedThisTurn: 0,
   }
-  if (startingBlock > 0) {
-    next = appendLog(next, 'Fortify — start turn with 2 block.')
+  const passiveLog = formatClassPassiveLog(state.classId)
+  if (passiveLog) {
+    next = appendLog(next, passiveLog)
   }
-  next = drawCards(next, 5)
+  next = drawCards(next, getClassTurnHandSize(state.classId))
   return {
     ...next,
     message: 'Your turn — play cards, then end turn.',
@@ -711,7 +704,7 @@ export function canContinueToShop(state: GameState): boolean {
 }
 
 export function getShopPrice(state: GameState): number {
-  return getShopCardPrice(state.relics)
+  return getClassShopPrice(state.classId, getShopCardPrice(state.relics))
 }
 
 export function canStartRun(state: GameState): boolean {
@@ -752,7 +745,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           classId: state.classId,
           screen: 'battle',
           deck: getClassStarterDeck(state.classId),
-          gold: 0,
+          gold: getClassStartingGold(state.classId, 0),
           lives: classDef.stats.arenaLives,
           battleNumber: 1,
           battleLog: [],
@@ -782,11 +775,13 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const discardPile = [...state.discardPile, cardId]
       const energy = state.energy - card.cost
 
-      const bonusDamage = getSoloClassBonusDamage(
-        state.classId,
+      const bonusDamage = getClassBonusDamage({
+        classId: state.classId,
         cardId,
-        state.strikesPlayedThisTurn,
-      )
+        strikesPlayedThisTurn: state.strikesPlayedThisTurn,
+        attacksPlayedThisTurn: state.attacksPlayedThisTurn,
+        handIndex: action.handIndex,
+      })
 
       let { enemyHp, enemyBlock, block, logLine } = resolveCardPlay(
         cardId,
@@ -803,11 +798,18 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         logLine += ` (+${bonusDamage} class bonus)`
       }
 
-      let playerHp = state.playerHp
-      if (card.block !== undefined && state.classId === 'necromancer') {
-        playerHp = Math.min(getClassMaxHp(state.classId), playerHp + 2)
-        logLine += ' — Life Drain (+2 HP).'
-      }
+      const damageDealt =
+        card.damage !== undefined
+          ? Math.max(0, state.enemyHp - enemyHp)
+          : 0
+
+      const postCard = applyClassPostCardEffects({
+        classId: state.classId,
+        cardId,
+        currentHp: state.playerHp,
+        maxHp: getClassMaxHp(state.classId),
+        damageDealt,
+      })
 
       let next = appendLog(
         {
@@ -818,13 +820,16 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           enemyBlock,
           block,
           energy,
-          playerHp,
-          strikesPlayedThisTurn: isStrikeCard(cardId)
+          playerHp: postCard.hp,
+          strikesPlayedThisTurn: shouldIncrementStrikeCounter(cardId)
             ? state.strikesPlayedThisTurn + 1
             : state.strikesPlayedThisTurn,
+          attacksPlayedThisTurn: shouldIncrementAttackCounter(cardId)
+            ? state.attacksPlayedThisTurn + 1
+            : state.attacksPlayedThisTurn,
           message: `Played ${card.name}.`,
         },
-        logLine,
+        logLine + postCard.logSuffix,
       )
 
       if (enemyHp <= 0) {

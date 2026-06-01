@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ONLINE_SHOP_CARD_PRICE } from '../game/arenaConstants'
+import { getClassShopPrice } from '../game/classDatabase'
 import { sanitizePvpDeck } from '../game/pvpBattleState'
 import { logOnlineError } from '../lib/onlineLog'
 import {
@@ -23,6 +24,10 @@ export function useOnlineShop(session: OnlineLobbySession | null) {
   const [lastReward, setLastReward] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+
+  const shopPrice = session
+    ? getClassShopPrice(session.classId, ONLINE_SHOP_CARD_PRICE)
+    : ONLINE_SHOP_CARD_PRICE
 
   useEffect(() => {
     if (!session) {
@@ -79,9 +84,9 @@ export function useOnlineShop(session: OnlineLobbySession | null) {
 
       const cardId = runState.shopOffers[offerIndex]
       if (!cardId) return
-      if (serverGold < ONLINE_SHOP_CARD_PRICE) return
+      if (serverGold < shopPrice) return
 
-      const nextGold = serverGold - ONLINE_SHOP_CARD_PRICE
+      const nextGold = serverGold - shopPrice
       const nextDeck = sanitizePvpDeck([...runState.deck, cardId])
       const nextRun: OnlineRunState = {
         ...runState,
@@ -107,7 +112,7 @@ export function useOnlineShop(session: OnlineLobbySession | null) {
         setPending(false)
       }
     },
-    [session, runState, serverGold, pending],
+    [session, runState, serverGold, pending, shopPrice],
   )
 
   const continueToArena = useCallback(async () => {
@@ -137,7 +142,7 @@ export function useOnlineShop(session: OnlineLobbySession | null) {
     runState,
     serverGold,
     lastReward,
-    shopPrice: ONLINE_SHOP_CARD_PRICE,
+    shopPrice,
     error,
     pending,
     buyCard,
