@@ -91,6 +91,7 @@ export async function rejoinFromPersisted(
       persisted.lobbyCode,
       persisted.championName,
       persisted.sessionId,
+      persisted.classId,
     )
 
     syncLocalDeckFromServer(player, session.lobbyId, session.sessionId)

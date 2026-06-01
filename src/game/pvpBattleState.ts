@@ -1,4 +1,11 @@
 import { getCard, STARTER_DECK, type CardId } from './cardDatabase'
+import {
+  DEFAULT_CLASS_ID,
+  getClassMaxHp,
+  getClassTurnEnergy,
+  isClassId,
+  type ClassId,
+} from './classDatabase'
 
 export const PVP_MAX_HP = 30
 export const PVP_STARTING_ENERGY = 3
@@ -71,12 +78,23 @@ export function buildPvpDrawPile(source?: CardId[]): CardId[] {
 export interface PvpPlayerBattleState {
   playerId: string
   championName: string
+  classId: ClassId
+  maxHp: number
   hp: number
   block: number
   energy: number
   drawPile: CardId[]
   discardPile: CardId[]
   hand: CardId[]
+  /** Gunslinger combo tracking within the current turn. */
+  strikesPlayedThisTurn: number
+}
+
+export interface PvpBattleCombatant {
+  id: string
+  championName: string
+  deck?: CardId[]
+  classId?: ClassId
 }
 
 export interface PvpPlayerMatchStats {
@@ -127,9 +145,12 @@ export type PvpBattleAction =
 export interface PvpBattleViewPlayer {
   playerId: string
   championName: string
+  classId: ClassId
+  maxHp: number
   hp: number
   block: number
   energy: number
+  maxEnergy: number
   drawCount: number
   discardCount: number
   handSize: number
@@ -193,9 +214,28 @@ function shuffle<T>(items: T[]): T[] {
   return copy
 }
 
+function normalizeCombatantPlayer(
+  player: PvpPlayerBattleState,
+): PvpPlayerBattleState {
+  const classId =
+    player.classId && isClassId(player.classId)
+      ? player.classId
+      : DEFAULT_CLASS_ID
+  const maxHp =
+    typeof player.maxHp === 'number' ? player.maxHp : getClassMaxHp(classId)
+  return {
+    ...player,
+    classId,
+    maxHp,
+    strikesPlayedThisTurn: player.strikesPlayedThisTurn ?? 0,
+  }
+}
+
 export function normalizePvpBattleState(state: PvpBattleState): PvpBattleState {
   return {
     ...state,
+    player1: normalizeCombatantPlayer(state.player1),
+    player2: normalizeCombatantPlayer(state.player2),
     stats: state.stats ?? {
       player1: { ...EMPTY_STATS },
       player2: { ...EMPTY_STATS },
@@ -204,6 +244,28 @@ export function normalizePvpBattleState(state: PvpBattleState): PvpBattleState {
     emote2: state.emote2 ?? null,
     lastEffect: state.lastEffect ?? null,
   }
+}
+
+function isStrikeCard(cardId: CardId): boolean {
+  return cardId === 'strike' || cardId === 'strike_plus' || cardId === 'heavy_strike'
+}
+
+function getClassBonusDamage(
+  classId: ClassId,
+  cardId: CardId,
+  strikesPlayedBefore: number,
+): number {
+  if (classId === 'berserker' && (cardId === 'strike' || cardId === 'heavy_strike')) {
+    return 2
+  }
+  if (
+    classId === 'gunslinger' &&
+    isStrikeCard(cardId) &&
+    strikesPlayedBefore > 0
+  ) {
+    return 3
+  }
+  return 0
 }
 
 function appendLog(state: PvpBattleState, entry: string): PvpBattleState {
@@ -269,15 +331,19 @@ function drawCardsForPlayer(
 }
 
 function beginTurn(state: PvpBattleState, slot: PlayerSlot): PvpBattleState {
-  const player = getPlayer(state, slot)
-  const cleared = {
+  const player = normalizeCombatantPlayer(getPlayer(state, slot))
+  let cleared: PvpPlayerBattleState = {
     ...player,
-    block: 0,
-    energy: PVP_STARTING_ENERGY,
+    block: player.classId === 'guardian' ? 2 : 0,
+    energy: getClassTurnEnergy(player.classId),
     hand: [],
+    strikesPlayedThisTurn: 0,
   }
   const drawn = drawCardsForPlayer(cleared, PVP_HAND_SIZE)
   let next = setPlayer(state, slot, drawn)
+  if (player.classId === 'guardian') {
+    next = appendLog(next, `${player.championName} — Fortify (+2 block).`)
+  }
   next = appendLog(next, `— ${player.championName}'s turn —`)
   return {
     ...next,
@@ -372,36 +438,38 @@ export function getPlayerSlot(
   return null
 }
 
-export function createInitialPvpBattleState(
-  player1: { id: string; championName: string; deck?: CardId[] },
-  player2: { id: string; championName: string; deck?: CardId[] },
-): PvpBattleState {
-  const deck1 = buildPvpDrawPile(player1.deck)
-  const deck2 = buildPvpDrawPile(player2.deck)
+function buildCombatant(
+  combatant: PvpBattleCombatant,
+): PvpPlayerBattleState {
+  const classId =
+    combatant.classId && isClassId(combatant.classId)
+      ? combatant.classId
+      : DEFAULT_CLASS_ID
+  const maxHp = getClassMaxHp(classId)
+  return {
+    playerId: combatant.id,
+    championName: combatant.championName,
+    classId,
+    maxHp,
+    hp: maxHp,
+    block: 0,
+    energy: 0,
+    drawPile: buildPvpDrawPile(combatant.deck),
+    discardPile: [],
+    hand: [],
+    strikesPlayedThisTurn: 0,
+  }
+}
 
+export function createInitialPvpBattleState(
+  player1: PvpBattleCombatant,
+  player2: PvpBattleCombatant,
+): PvpBattleState {
   const base: PvpBattleState = {
     version: 1,
     activeSlot: 1,
-    player1: {
-      playerId: player1.id,
-      championName: player1.championName,
-      hp: PVP_MAX_HP,
-      block: 0,
-      energy: 0,
-      drawPile: deck1,
-      discardPile: [],
-      hand: [],
-    },
-    player2: {
-      playerId: player2.id,
-      championName: player2.championName,
-      hp: PVP_MAX_HP,
-      block: 0,
-      energy: 0,
-      drawPile: deck2,
-      discardPile: [],
-      hand: [],
-    },
+    player1: buildCombatant(player1),
+    player2: buildCombatant(player2),
     stats: {
       player1: { ...EMPTY_STATS },
       player2: { ...EMPTY_STATS },
@@ -438,9 +506,12 @@ export function buildPvpBattleView(
   const me: PvpBattleViewPlayer = {
     playerId: meRaw.playerId,
     championName: meRaw.championName,
+    classId: meRaw.classId,
+    maxHp: meRaw.maxHp,
     hp: meRaw.hp,
     block: meRaw.block,
     energy: meRaw.energy,
+    maxEnergy: getClassTurnEnergy(meRaw.classId),
     drawCount: meRaw.drawPile.length,
     discardCount: meRaw.discardPile.length,
     handSize: meRaw.hand.length,
@@ -450,9 +521,12 @@ export function buildPvpBattleView(
   const opponent: PvpBattleViewPlayer = {
     playerId: oppRaw.playerId,
     championName: oppRaw.championName,
+    classId: oppRaw.classId,
+    maxHp: oppRaw.maxHp,
     hp: oppRaw.hp,
     block: oppRaw.block,
     energy: oppRaw.energy,
+    maxEnergy: getClassTurnEnergy(oppRaw.classId),
     drawCount: oppRaw.drawPile.length,
     discardCount: oppRaw.discardPile.length,
     handSize: oppRaw.hand.length,
@@ -487,15 +561,19 @@ export function buildPvpBattleView(
 }
 
 function toSpectatorPlayer(player: PvpPlayerBattleState): PvpBattleViewPlayer {
+  const normalized = normalizeCombatantPlayer(player)
   return {
-    playerId: player.playerId,
-    championName: player.championName,
-    hp: player.hp,
-    block: player.block,
-    energy: player.energy,
-    drawCount: player.drawPile.length,
-    discardCount: player.discardPile.length,
-    handSize: player.hand.length,
+    playerId: normalized.playerId,
+    championName: normalized.championName,
+    classId: normalized.classId,
+    maxHp: normalized.maxHp,
+    hp: normalized.hp,
+    block: normalized.block,
+    energy: normalized.energy,
+    maxEnergy: getClassTurnEnergy(normalized.classId),
+    drawCount: normalized.drawPile.length,
+    discardCount: normalized.discardPile.length,
+    handSize: normalized.hand.length,
     hand: null,
   }
 }
@@ -623,6 +701,12 @@ function applyPlayCard(
   const discardPile = [...attacker.discardPile, cardId]
   const energy = attacker.energy - card.cost
 
+  const bonusDamage = getClassBonusDamage(
+    attacker.classId,
+    cardId,
+    attacker.strikesPlayedThisTurn,
+  )
+
   const result = resolvePvpCardPlay(
     cardId,
     attacker.block,
@@ -630,37 +714,67 @@ function applyPlayCard(
     defender.block,
   )
 
-  const updatedAttacker: PvpPlayerBattleState = {
+  let targetHp = result.targetHp
+  let targetBlock = result.targetBlock
+  let totalDamage = result.damageDealt
+
+  if (bonusDamage > 0 && card.damage !== undefined) {
+    const extra = applyDamageToTarget(targetHp, targetBlock, bonusDamage)
+    targetHp = extra.hp
+    targetBlock = extra.block
+    totalDamage += extra.damageDealt
+  }
+
+  let updatedAttacker: PvpPlayerBattleState = {
     ...attacker,
     hand,
     discardPile,
     energy,
     block: result.attackerBlock,
+    strikesPlayedThisTurn: isStrikeCard(cardId)
+      ? attacker.strikesPlayedThisTurn + 1
+      : attacker.strikesPlayedThisTurn,
   }
+
+  if (card.block !== undefined && attacker.classId === 'necromancer') {
+    updatedAttacker = {
+      ...updatedAttacker,
+      hp: Math.min(updatedAttacker.maxHp, updatedAttacker.hp + 2),
+    }
+  }
+
   const updatedDefender: PvpPlayerBattleState = {
     ...defender,
-    hp: result.targetHp,
-    block: result.targetBlock,
+    hp: targetHp,
+    block: targetBlock,
   }
 
   const prevStats = getStats(state, slot)
   const nextStats: PvpPlayerMatchStats = {
-    damageDealt: prevStats.damageDealt + result.damageDealt,
+    damageDealt: prevStats.damageDealt + totalDamage,
     cardsPlayed: prevStats.cardsPlayed + 1,
+  }
+
+  let logLine = result.logLine
+  if (bonusDamage > 0) {
+    logLine += ` (+${bonusDamage} class bonus)`
+  }
+  if (card.block !== undefined && attacker.classId === 'necromancer') {
+    logLine += ' — Life Drain (+2 HP).'
   }
 
   let next = setPlayer(state, slot, updatedAttacker)
   next = setPlayer(next, opponentSlot, updatedDefender)
   next = setStats(next, slot, nextStats)
   next = {
-    ...appendLog(next, `${attacker.championName}: ${result.logLine}`),
+    ...appendLog(next, `${attacker.championName}: ${logLine}`),
     version: state.version + 1,
     message: `${attacker.championName} played ${card.name}.`,
     lastEffect:
-      result.effectKind === 'damage' && result.damageDealt > 0
+      result.effectKind === 'damage' && totalDamage > 0
         ? {
             kind: 'damage',
-            amount: result.damageDealt,
+            amount: totalDamage,
             actorSlot: slot,
             targetSlot: opponentSlot,
             cardName: card.name,
@@ -678,7 +792,7 @@ function applyPlayCard(
           : null,
   }
 
-  if (result.targetHp <= 0) {
+  if (targetHp <= 0) {
     return completeMatch(next, slot)
   }
 

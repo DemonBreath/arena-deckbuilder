@@ -1,8 +1,11 @@
 import { getCard } from '../game/cardDatabase'
 import { getOpponent } from '../game/opponentDatabase'
+import { getClassDefinition } from '../game/classDatabase'
 import {
   getCurrentArenaOpponentName,
   getEnemyIntent,
+  getSoloPlayerMaxEnergy,
+  getSoloPlayerMaxHp,
   isBattleActive,
   type GameState,
 } from '../game/gameState'
@@ -22,6 +25,9 @@ export function BattleView({ state, onPlayCard, onEndTurn }: BattleViewProps) {
   const archetype = getOpponent(state.opponentId)
   const arenaOpponentName = getCurrentArenaOpponentName(state)
   const intent = getEnemyIntent(state)
+  const classDef = getClassDefinition(state.classId)
+  const maxHp = getSoloPlayerMaxHp(state)
+  const maxEnergy = getSoloPlayerMaxEnergy(state)
 
   return (
     <div className="battle-view">
@@ -49,12 +55,17 @@ export function BattleView({ state, onPlayCard, onEndTurn }: BattleViewProps) {
 
             <section className="fighter-panel fighter-panel--player">
               <h3>{state.championName}</h3>
+              <p className="fighter-archetype">{classDef.name}</p>
               <p className="hp-bar">
                 <span>HP</span>
-                <strong>{Math.max(0, state.playerHp)} / 30</strong>
+                <strong>
+                  {Math.max(0, state.playerHp)} / {maxHp}
+                </strong>
               </p>
               <p className="stat-line">Block: {state.block}</p>
-              <p className="stat-line">Energy: {state.energy} / 3</p>
+              <p className="stat-line">
+                Energy: {state.energy} / {maxEnergy}
+              </p>
               <p className="stat-line">Draw pile: {state.drawPile.length}</p>
               <p className="stat-line">Discard: {state.discardPile.length}</p>
             </section>

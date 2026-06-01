@@ -1,5 +1,10 @@
 import { STARTER_DECK, type CardId } from '../game/cardDatabase'
 import {
+  getClassStarterDeck,
+  parseClassId,
+  type ClassId,
+} from '../game/classDatabase'
+import {
   applyPostMatchReward,
   generatePostMatchRewardOffers,
   type PostMatchRewardOffer,
@@ -8,6 +13,7 @@ import { PVP_SHOP_CARD_POOL } from '../game/pvpBattleState'
 import type { RelicId } from '../game/relicDatabase'
 
 export interface OnlineRunState {
+  classId: ClassId
   deck: CardId[]
   relics: RelicId[]
   lastReward: number
@@ -45,7 +51,9 @@ function generateShopOffers(): CardId[] {
 }
 
 function normalizeRunState(parsed: Partial<OnlineRunState>): OnlineRunState {
+  const classId = parseClassId(parsed.classId)
   return {
+    classId,
     deck:
       Array.isArray(parsed.deck) && parsed.deck.length > 0
         ? parsed.deck
@@ -88,6 +96,7 @@ export function loadOnlineRun(
   }
 
   return {
+    classId: parseClassId(undefined),
     deck: [...STARTER_DECK],
     relics: [],
     lastReward: 0,
@@ -116,6 +125,27 @@ export function refreshShopOffers(state: OnlineRunState): OnlineRunState {
     ...state,
     shopOffers: generateShopOffers(),
   }
+}
+
+export function initializeOnlineRunForClass(
+  lobbyId: string,
+  sessionId: string,
+  classId: ClassId,
+): OnlineRunState {
+  const next: OnlineRunState = {
+    ...loadOnlineRun(lobbyId, sessionId),
+    classId,
+    deck: getClassStarterDeck(classId),
+    relics: [],
+    lastReward: 0,
+    shopOffers: generateShopOffers(),
+    postMatchOffers: null,
+    postMatchRewardClaimed: false,
+    postMatchForMatchId: null,
+    lastRewardSummary: null,
+  }
+  saveOnlineRun(lobbyId, sessionId, next)
+  return next
 }
 
 export function preparePostMatchRewards(

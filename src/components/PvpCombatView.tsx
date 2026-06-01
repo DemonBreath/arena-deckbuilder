@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { getCard } from '../game/cardDatabase'
 import {
   getEmoteLabel,
-  PVP_MAX_HP,
   type PvpBattleView,
   type PvpEmoteId,
 } from '../game/pvpBattleState'
@@ -126,11 +125,13 @@ export function PvpCombatView({
               <p className="hp-bar">
                 <span>HP</span>
                 <strong>
-                  {Math.max(0, view.opponent.hp)} / {PVP_MAX_HP}
+                  {Math.max(0, view.opponent.hp)} / {view.opponent.maxHp}
                 </strong>
               </p>
               <p className="stat-line">Block: {view.opponent.block}</p>
-              <p className="stat-line">Energy: {view.opponent.energy} / 3</p>
+              <p className="stat-line">
+                Energy: {view.opponent.energy} / {view.opponent.maxEnergy}
+              </p>
               <p className="stat-line">Draw: {view.opponent.drawCount}</p>
               <p className="stat-line">Discard: {view.opponent.discardCount}</p>
               <p className="stat-line">Hand: {view.opponent.handSize}</p>
@@ -141,11 +142,13 @@ export function PvpCombatView({
               <p className="hp-bar">
                 <span>HP</span>
                 <strong>
-                  {Math.max(0, view.me.hp)} / {PVP_MAX_HP}
+                  {Math.max(0, view.me.hp)} / {view.me.maxHp}
                 </strong>
               </p>
               <p className="stat-line">Block: {view.me.block}</p>
-              <p className="stat-line">Energy: {view.me.energy} / 3</p>
+              <p className="stat-line">
+                Energy: {view.me.energy} / {view.me.maxEnergy}
+              </p>
               <p className="stat-line">Draw: {view.me.drawCount}</p>
               <p className="stat-line">Discard: {view.me.discardCount}</p>
               <p className="stat-line">Hand: {view.me.handSize}</p>

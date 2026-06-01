@@ -1,9 +1,12 @@
+import { parseClassId, type ClassId } from '../game/classDatabase'
+
 const STORAGE_KEY = 'arena-persisted-online-session'
 const MAX_AGE_MS = 24 * 60 * 60 * 1000
 
 export interface PersistedOnlineSession {
   playerId: string
   championName: string
+  classId: ClassId
   lobbyCode: string
   lobbyId: string
   sessionId: string
@@ -48,6 +51,7 @@ export function loadPersistedSession(): PersistedOnlineSession | null {
     return {
       playerId: parsed.playerId,
       championName: parsed.championName,
+      classId: parseClassId(parsed.classId),
       lobbyCode: parsed.lobbyCode,
       lobbyId: parsed.lobbyId,
       sessionId: parsed.sessionId,
@@ -77,6 +81,7 @@ export function persistFromLobbySession(
   session: {
     playerId: string
     championName: string
+    classId: ClassId
     lobbyCode: string
     lobbyId: string
     sessionId: string
@@ -86,6 +91,7 @@ export function persistFromLobbySession(
   savePersistedSession({
     playerId: session.playerId,
     championName: session.championName,
+    classId: session.classId,
     lobbyCode: session.lobbyCode,
     lobbyId: session.lobbyId,
     sessionId: session.sessionId,

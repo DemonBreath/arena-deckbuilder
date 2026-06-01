@@ -1,10 +1,17 @@
 import {
-  STARTER_DECK,
   SHOP_CARD_POOL,
   REWARD_CARD_POOL,
   getCard,
   type CardId,
 } from './cardDatabase'
+import {
+  DEFAULT_CLASS_ID,
+  getClassDefinition,
+  getClassMaxHp,
+  getClassStarterDeck,
+  getClassTurnEnergy,
+  type ClassId,
+} from './classDatabase'
 import {
   pickRandomOpponent,
   getOpponent,
@@ -60,6 +67,8 @@ const MAX_LOG_ENTRIES = 80
 export interface GameState {
   screen: Screen
   championName: string
+  classId: ClassId
+  strikesPlayedThisTurn: number
   currentArenaContestantId: string | null
   playerHp: number
   enemyHp: number
@@ -92,6 +101,8 @@ export interface GameState {
 export const INITIAL_STATE: GameState = {
   screen: 'title',
   championName: '',
+  classId: DEFAULT_CLASS_ID,
+  strikesPlayedThisTurn: 0,
   currentArenaContestantId: null,
   playerHp: PLAYER_MAX_HP,
   enemyHp: 30,
@@ -123,6 +134,7 @@ export const INITIAL_STATE: GameState = {
 
 export type GameAction =
   | { type: 'SET_CHAMPION_NAME'; name: string }
+  | { type: 'SET_CLASS'; classId: ClassId }
   | { type: 'START_RUN' }
   | { type: 'VIEW_DAILY_CHAMPIONS' }
   | { type: 'GO_TITLE' }
@@ -219,9 +231,49 @@ function drawCards(state: GameState, targetHandSize: number): GameState {
   return { ...next, drawPile, discardPile, hand }
 }
 
+function isStrikeCard(cardId: CardId): boolean {
+  return cardId === 'strike' || cardId === 'strike_plus' || cardId === 'heavy_strike'
+}
+
+function getSoloClassBonusDamage(
+  classId: ClassId,
+  cardId: CardId,
+  strikesPlayedBefore: number,
+): number {
+  if (classId === 'berserker' && (cardId === 'strike' || cardId === 'heavy_strike')) {
+    return 2
+  }
+  if (
+    classId === 'gunslinger' &&
+    isStrikeCard(cardId) &&
+    strikesPlayedBefore > 0
+  ) {
+    return 3
+  }
+  return 0
+}
+
+export function getSoloPlayerMaxHp(state: GameState): number {
+  return getClassMaxHp(state.classId)
+}
+
+export function getSoloPlayerMaxEnergy(state: GameState): number {
+  return getClassTurnEnergy(state.classId)
+}
+
 function beginPlayerTurn(state: GameState): GameState {
   let next = appendLog(state, '— Your turn —')
-  next = { ...next, block: 0, energy: 3, hand: [] }
+  const startingBlock = state.classId === 'guardian' ? 2 : 0
+  next = {
+    ...next,
+    block: startingBlock,
+    energy: getClassTurnEnergy(state.classId),
+    hand: [],
+    strikesPlayedThisTurn: 0,
+  }
+  if (startingBlock > 0) {
+    next = appendLog(next, 'Fortify — start turn with 2 block.')
+  }
   next = drawCards(next, 5)
   return {
     ...next,
@@ -261,7 +313,7 @@ function setupBattle(state: GameState): GameState {
     currentArenaContestantId: arenaOpponent.id,
     opponentId,
     turtlePhase,
-    playerHp: PLAYER_MAX_HP,
+    playerHp: getClassMaxHp(state.classId),
     enemyHp: archetype.maxHp,
     enemyBlock: 0,
     drawPile: shuffled,
@@ -677,28 +729,38 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'GO_TITLE': {
-      return { ...INITIAL_STATE, championName: state.championName }
+      return {
+        ...INITIAL_STATE,
+        championName: state.championName,
+        classId: state.classId,
+      }
+    }
+
+    case 'SET_CLASS': {
+      return { ...state, classId: action.classId }
     }
 
     case 'START_RUN': {
       const name = state.championName.trim()
       if (!name) return state
+      const classDef = getClassDefinition(state.classId)
 
       let fresh = appendLog(
         {
           ...INITIAL_STATE,
           championName: name,
+          classId: state.classId,
           screen: 'battle',
-          deck: [...STARTER_DECK],
+          deck: getClassStarterDeck(state.classId),
           gold: 0,
-          lives: STARTING_LIVES,
+          lives: classDef.stats.arenaLives,
           battleNumber: 1,
           battleLog: [],
           relics: [],
           contestants: createArenaRoster(name),
           championSubmitted: false,
         },
-        `${name} entered the arena — 3 lives.`,
+        `${name} entered the arena as ${classDef.name} — ${classDef.stats.arenaLives} lives.`,
       )
       fresh = appendLog(
         fresh,
@@ -720,13 +782,32 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const discardPile = [...state.discardPile, cardId]
       const energy = state.energy - card.cost
 
-      const { enemyHp, enemyBlock, block, logLine } = resolveCardPlay(
+      const bonusDamage = getSoloClassBonusDamage(
+        state.classId,
+        cardId,
+        state.strikesPlayedThisTurn,
+      )
+
+      let { enemyHp, enemyBlock, block, logLine } = resolveCardPlay(
         cardId,
         state.enemyHp,
         state.enemyBlock,
         state.block,
         state.relics,
       )
+
+      if (bonusDamage > 0 && card.damage !== undefined) {
+        const extra = applyDamageToEnemy(enemyHp, enemyBlock, bonusDamage)
+        enemyHp = extra.enemyHp
+        enemyBlock = extra.enemyBlock
+        logLine += ` (+${bonusDamage} class bonus)`
+      }
+
+      let playerHp = state.playerHp
+      if (card.block !== undefined && state.classId === 'necromancer') {
+        playerHp = Math.min(getClassMaxHp(state.classId), playerHp + 2)
+        logLine += ' — Life Drain (+2 HP).'
+      }
 
       let next = appendLog(
         {
@@ -737,6 +818,10 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           enemyBlock,
           block,
           energy,
+          playerHp,
+          strikesPlayedThisTurn: isStrikeCard(cardId)
+            ? state.strikesPlayedThisTurn + 1
+            : state.strikesPlayedThisTurn,
           message: `Played ${card.name}.`,
         },
         logLine,

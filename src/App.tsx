@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
+import { ClassSelectionScreen } from './components/ClassSelectionScreen'
 import { RejoinPrompt } from './components/RejoinPrompt'
 import { LobbyInviteJoinView } from './components/LobbyInviteJoinView'
 import { BattleView } from './components/BattleView'
@@ -41,6 +42,11 @@ import {
 } from './services/lobbyService'
 import { PVP_BYE_GOLD } from './game/arenaConstants'
 import {
+  getClassDefinition,
+  type ClassId,
+} from './game/classDatabase'
+import { loadSelectedClass, saveSelectedClass } from './lib/selectedClass'
+import {
   clearPersistedSession,
   loadPersistedSession,
   persistFromLobbySession,
@@ -50,6 +56,7 @@ import {
 import { rejoinFromPersisted } from './services/reconnectService'
 import {
   clearOnlineRun,
+  initializeOnlineRunForClass,
   loadOnlineRun,
   preparePostMatchRewards,
   setLastRoundGold,
@@ -97,8 +104,20 @@ function App() {
   const [soloSubmitMessage, setSoloSubmitMessage] = useState<string | null>(null)
   const [soloSubmitError, setSoloSubmitError] = useState<string | null>(null)
   const soloSubmitAttemptedRef = useRef(false)
+  const [selectedClassId, setSelectedClassId] = useState<ClassId>(() =>
+    loadSelectedClass(),
+  )
+  const [showClassSelection, setShowClassSelection] = useState(false)
+  const [pendingEntryAction, setPendingEntryAction] = useState<
+    'join' | 'solo' | 'invite' | null
+  >(null)
+
+  useEffect(() => {
+    dispatch({ type: 'SET_CLASS', classId: selectedClassId })
+  }, [selectedClassId])
 
   const canStart = canStartRun(state)
+  const selectedClass = getClassDefinition(selectedClassId)
   const onlineAvailable = isOnlineLobbyAvailable()
   const canJoinLobby =
     onlineAvailable &&
@@ -117,8 +136,10 @@ function App() {
   useEffect(() => {
     if (onlineSession) {
       replaceLobbyPath(onlineSession.lobbyCode)
+      setSelectedClassId(onlineSession.classId)
+      dispatch({ type: 'SET_CLASS', classId: onlineSession.classId })
     }
-  }, [onlineSession?.lobbyCode])
+  }, [onlineSession?.lobbyCode, onlineSession?.classId])
 
   useEffect(() => {
     if (!onlineAvailable || onlineSession) return
@@ -166,6 +187,29 @@ function App() {
     [resetOnlineScreens],
   )
 
+  const handleSelectClass = (classId: ClassId) => {
+    setSelectedClassId(classId)
+    saveSelectedClass(classId)
+    dispatch({ type: 'SET_CLASS', classId })
+  }
+
+  const openClassSelection = (action: 'join' | 'solo' | 'invite') => {
+    if (!canStart) return
+    setPendingEntryAction(action)
+    setShowClassSelection(true)
+  }
+
+  const handleClassSelectionConfirm = () => {
+    setShowClassSelection(false)
+    const action = pendingEntryAction
+    setPendingEntryAction(null)
+    if (action === 'join' || action === 'invite') {
+      void handleJoinLobby()
+    } else if (action === 'solo') {
+      dispatch({ type: 'START_RUN' })
+    }
+  }
+
   const handleJoinLobby = async () => {
     if (!canJoinLobby) return
 
@@ -177,6 +221,12 @@ function App() {
         lobbyCode,
         state.championName,
         getOrCreateSessionId(),
+        selectedClassId,
+      )
+      initializeOnlineRunForClass(
+        session.lobbyId,
+        session.sessionId,
+        selectedClassId,
       )
       setOnlineSession(session)
       setMatchSession(null)
@@ -246,6 +296,9 @@ function App() {
         type: 'SET_CHAMPION_NAME',
         name: result.session.championName,
       })
+      setSelectedClassId(result.session.classId)
+      saveSelectedClass(result.session.classId)
+      dispatch({ type: 'SET_CLASS', classId: result.session.classId })
       setLobbyCode(result.session.lobbyCode)
       setOnlineSession(result.session)
       setPendingRejoin(null)
@@ -520,16 +573,47 @@ function App() {
     !onlineSession &&
     state.screen === 'title'
 
+  if (
+    showClassSelection &&
+    !onlineSession &&
+    state.screen === 'title'
+  ) {
+    const confirmLabel =
+      pendingEntryAction === 'solo'
+        ? 'Start Solo Run'
+        : pendingEntryAction === 'invite'
+          ? 'Join Lobby'
+          : 'Join Online Lobby'
+
+    return (
+      <div className="app">
+        <ClassSelectionScreen
+          selectedClassId={selectedClassId}
+          onSelectClass={handleSelectClass}
+          onConfirm={handleClassSelectionConfirm}
+          onBack={() => {
+            setShowClassSelection(false)
+            setPendingEntryAction(null)
+          }}
+          confirmLabel={confirmLabel}
+          championName={state.championName.trim() || undefined}
+        />
+      </div>
+    )
+  }
+
   if (showInviteJoin) {
     return (
       <div className="app">
         <LobbyInviteJoinView
           lobbyCode={pathLobbyCode}
           championName={state.championName}
+          selectedClassName={selectedClass.name}
           onChampionNameChange={(name) =>
             dispatch({ type: 'SET_CHAMPION_NAME', name })
           }
-          onJoin={() => void handleJoinLobby()}
+          onChooseClass={() => openClassSelection('invite')}
+          onJoin={() => openClassSelection('invite')}
           onBackToHome={handleBackToHome}
           joining={joining}
           joinError={joinError}
@@ -570,7 +654,7 @@ function App() {
             Enter the arena, defeat every opponent, and claim the daily crown.
           </p>
           <p className="subtitle">
-            Milestone 16 — shareable no-login lobby invites
+            Milestone 18 — choose your class before entering the arena
           </p>
 
           {onlineAvailable && pendingRejoin && !onlineSession && (
@@ -596,6 +680,20 @@ function App() {
               }
             />
           </label>
+
+          <div className="title-class-summary">
+            <span>Selected class</span>
+            <strong>{selectedClass.name}</strong>
+            <p>{selectedClass.passive.description}</p>
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={!canStart}
+              onClick={() => openClassSelection('join')}
+            >
+              Change Class
+            </button>
+          </div>
 
           {onlineAvailable ? (
             <div className="title-online-section">
@@ -623,9 +721,9 @@ function App() {
                 type="button"
                 className="primary-button"
                 disabled={!canJoinLobby}
-                onClick={() => void handleJoinLobby()}
+                onClick={() => openClassSelection('join')}
               >
-                {joining ? 'Joining…' : 'Join Online Lobby'}
+                {joining ? 'Joining…' : 'Choose Class & Join Lobby'}
               </button>
             </div>
           ) : (
@@ -644,9 +742,9 @@ function App() {
               type="button"
               className="primary-button"
               disabled={!canStart}
-              onClick={() => dispatch({ type: 'START_RUN' })}
+              onClick={() => openClassSelection('solo')}
             >
-              Start Solo Run
+              Choose Class & Start Solo
             </button>
             <button
               type="button"

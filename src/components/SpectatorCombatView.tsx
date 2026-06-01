@@ -1,4 +1,5 @@
-import { PVP_MAX_HP, type SpectatorBattleView } from '../game/pvpBattleState'
+import { getClassDefinition } from '../game/classDatabase'
+import type { SpectatorBattleView } from '../game/pvpBattleState'
 import {
   useOnlineRunStatus,
   type OnlineRunSession,
@@ -76,29 +77,37 @@ export function SpectatorCombatView({
 
             <section className="fighter-panel fighter-panel--enemy">
               <h3>{view.player1.championName}</h3>
-              <p className="fighter-archetype">Fighter 1</p>
+              <p className="fighter-archetype">
+                {getClassDefinition(view.player1.classId).name}
+              </p>
               <p className="hp-bar">
                 <span>HP</span>
                 <strong>
-                  {Math.max(0, view.player1.hp)} / {PVP_MAX_HP}
+                  {Math.max(0, view.player1.hp)} / {view.player1.maxHp}
                 </strong>
               </p>
               <p className="stat-line">Block: {view.player1.block}</p>
-              <p className="stat-line">Energy: {view.player1.energy} / 3</p>
+              <p className="stat-line">
+                Energy: {view.player1.energy} / {view.player1.maxEnergy}
+              </p>
               <p className="stat-line">Hand: {view.player1.handSize} cards</p>
             </section>
 
             <section className="fighter-panel fighter-panel--player">
               <h3>{view.player2.championName}</h3>
-              <p className="fighter-archetype">Fighter 2</p>
+              <p className="fighter-archetype">
+                {getClassDefinition(view.player2.classId).name}
+              </p>
               <p className="hp-bar">
                 <span>HP</span>
                 <strong>
-                  {Math.max(0, view.player2.hp)} / {PVP_MAX_HP}
+                  {Math.max(0, view.player2.hp)} / {view.player2.maxHp}
                 </strong>
               </p>
               <p className="stat-line">Block: {view.player2.block}</p>
-              <p className="stat-line">Energy: {view.player2.energy} / 3</p>
+              <p className="stat-line">
+                Energy: {view.player2.energy} / {view.player2.maxEnergy}
+              </p>
               <p className="stat-line">Hand: {view.player2.handSize} cards</p>
             </section>
           </div>

@@ -11,7 +11,9 @@ import type { PersistedOnlineSession } from '../services/persistedSessionService
 interface LobbyInviteJoinViewProps {
   lobbyCode: string
   championName: string
+  selectedClassName: string
   onChampionNameChange: (name: string) => void
+  onChooseClass: () => void
   onJoin: () => void
   onBackToHome: () => void
   joining: boolean
@@ -27,7 +29,9 @@ interface LobbyInviteJoinViewProps {
 export function LobbyInviteJoinView({
   lobbyCode,
   championName,
+  selectedClassName,
   onChampionNameChange,
+  onChooseClass,
   onJoin,
   onBackToHome,
   joining,
@@ -112,6 +116,13 @@ export function LobbyInviteJoinView({
               />
             )}
 
+          <p className="lobby-invite-screen__class">
+            Class: <strong>{selectedClassName}</strong>{' '}
+            <button type="button" className="link-button" onClick={onChooseClass}>
+              Change
+            </button>
+          </p>
+
           <label className="champion-name-field">
             <span>Champion Name</span>
             <input
@@ -132,7 +143,7 @@ export function LobbyInviteJoinView({
             disabled={!canJoin || joining || rejoining}
             onClick={onJoin}
           >
-            {joining ? 'Joining…' : 'Join Lobby'}
+            {joining ? 'Joining…' : 'Choose Class & Join Lobby'}
           </button>
         </>
       )}

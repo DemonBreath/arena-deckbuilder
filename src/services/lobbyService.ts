@@ -1,7 +1,12 @@
 import { logOnlineError } from '../lib/onlineLog'
 import { subscribePostgresChanges } from '../lib/realtimeSubscription'
 import { getSupabaseClient, isSupabaseConfigured } from '../lib/supabaseClient'
-import { STARTER_DECK, type CardId } from '../game/cardDatabase'
+import { type CardId } from '../game/cardDatabase'
+import {
+  getClassStarterDeck,
+  parseClassId,
+  type ClassId,
+} from '../game/classDatabase'
 import type { RelicId } from '../game/relicDatabase'
 import {
   isLobbyFull,
@@ -30,6 +35,7 @@ interface LobbyPlayerRow {
   lobby_id: string
   session_id: string
   champion_name: string
+  class_id?: string | null
   ready: boolean
   lives?: number
   eliminated?: boolean
@@ -69,6 +75,7 @@ function mapLobbyPlayer(row: LobbyPlayerRow): LobbyPlayer {
     lobbyId: row.lobby_id,
     sessionId: row.session_id,
     championName: row.champion_name,
+    classId: parseClassId(row.class_id),
     readyState: readyStateFromBoolean(row.ready),
     lives: typeof row.lives === 'number' ? row.lives : 3,
     eliminated: Boolean(row.eliminated),
@@ -96,6 +103,7 @@ export async function createOrJoinLobby(
   code: string,
   championName: string,
   sessionId: string,
+  classId: ClassId,
 ): Promise<{ lobby: Lobby; player: LobbyPlayer; session: OnlineLobbySession }> {
   const supabase = getSupabaseClient()
   const normalizedCode = normalizeLobbyCode(code)
@@ -163,7 +171,7 @@ export async function createOrJoinLobby(
   if (existingPlayer) {
     const { data: updated, error: updateError } = await supabase
       .from('lobby_players')
-      .update({ champion_name: trimmedName })
+      .update({ champion_name: trimmedName, class_id: classId })
       .eq('id', existingPlayer.id)
       .select()
       .single()
@@ -178,14 +186,16 @@ export async function createOrJoinLobby(
       throw new Error('Lobby Full.')
     }
 
+    const starterDeck = getClassStarterDeck(classId)
     const { data: inserted, error: insertError } = await supabase
       .from('lobby_players')
       .insert({
         lobby_id: lobby.id,
         session_id: sessionId,
         champion_name: trimmedName,
+        class_id: classId,
         ready: false,
-        deck: [...STARTER_DECK],
+        deck: starterDeck,
         relics: [],
       })
       .select()
@@ -208,6 +218,7 @@ export async function createOrJoinLobby(
       playerId: player.id,
       sessionId,
       championName: trimmedName,
+      classId: player.classId,
     },
   }
 }

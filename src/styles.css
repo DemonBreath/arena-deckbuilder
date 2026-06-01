@@ -2353,6 +2353,159 @@ body {
   font-weight: 600;
 }
 
+.class-selection-screen {
+  max-width: 56rem;
+  margin: 0 auto;
+  gap: 1.25rem;
+}
+
+.class-selection-screen__champion {
+  margin: 0;
+  text-align: center;
+  color: #b8c0d8;
+}
+
+.class-selection-screen__hint {
+  margin: 0;
+  text-align: center;
+  color: #9aa5c4;
+  line-height: 1.5;
+}
+
+.class-selection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 1rem;
+  width: 100%;
+}
+
+.class-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 1rem;
+  text-align: left;
+  background: #1a1f2e;
+  border: 2px solid #2f3852;
+  border-radius: 12px;
+  color: #f4f1ea;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.class-card:hover {
+  border-color: #4a5a84;
+}
+
+.class-card--selected {
+  border-color: #7dcea0;
+  box-shadow: 0 0 0 1px rgba(125, 206, 160, 0.35);
+}
+
+.class-card__name {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #f0c96a;
+}
+
+.class-card__tagline {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #b8c0d8;
+}
+
+.class-card__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  font-size: 0.8rem;
+  color: #9aa5c4;
+}
+
+.class-card__passive-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #9aa5c4;
+  margin-bottom: 0.25rem;
+}
+
+.class-card__passive p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #d8dce8;
+  line-height: 1.4;
+}
+
+.class-card__deck-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #9aa5c4;
+  margin-bottom: 0.35rem;
+}
+
+.class-card__deck ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+  color: #b8c0d8;
+}
+
+.class-card__deck li + li {
+  margin-top: 0.2rem;
+}
+
+.class-selection-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+.title-class-summary {
+  width: 100%;
+  max-width: 28rem;
+  margin: 0 auto;
+  padding: 1rem 1.1rem;
+  text-align: center;
+  background: #1c2130;
+  border: 1px solid #2f3852;
+  border-radius: 12px;
+}
+
+.title-class-summary span {
+  display: block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #9aa5c4;
+}
+
+.title-class-summary strong {
+  display: block;
+  margin: 0.25rem 0;
+  font-size: 1.25rem;
+  color: #f0c96a;
+}
+
+.title-class-summary p {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+  color: #b8c0d8;
+}
+
+.lobby-invite-screen__class {
+  margin: 0;
+  text-align: center;
+  color: #b8c0d8;
+}
+
 .pvp-emote-bar {
   display: flex;
   flex-direction: column;

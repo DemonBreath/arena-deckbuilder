@@ -18,6 +18,7 @@ create table if not exists public.lobby_players (
   lobby_id uuid not null references public.lobbies (id) on delete cascade,
   session_id text not null,
   champion_name text not null,
+  class_id text not null default 'guardian',
   ready boolean not null default false,
   lives int not null default 3,
   eliminated boolean not null default false,

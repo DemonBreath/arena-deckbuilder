@@ -1,4 +1,5 @@
 import { ARENA_MAX_PLAYERS } from '../game/arenaConstants'
+import { getClassDefinition } from '../game/classDatabase'
 import { countActivePlayers } from '../services/arenaService'
 import {
   getRosterStatusClass,
@@ -36,6 +37,7 @@ export function ArenaRosterPanel({
             <tr>
               <th>Rank</th>
               <th>Champion</th>
+              <th>Class</th>
               <th>Lives</th>
               <th>Gold</th>
               <th>Defeated</th>
@@ -65,6 +67,7 @@ export function ArenaRosterPanel({
                       <span className="standings-table__you"> (you)</span>
                     )}
                   </td>
+                  <td>{getClassDefinition(player.classId).name}</td>
                   <td>{player.eliminated ? '—' : player.lives}</td>
                   <td>{player.gold}</td>
                   <td>{player.opponentsDefeated}</td>

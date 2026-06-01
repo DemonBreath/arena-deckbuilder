@@ -7,7 +7,7 @@ import {
   type PvpBattleState,
 } from '../game/pvpBattleState'
 import { getSupabaseClient } from '../lib/supabaseClient'
-import { STARTER_DECK } from '../game/cardDatabase'
+import { getClassStarterDeck, parseClassId } from '../game/classDatabase'
 import { fetchLobbyPlayers } from './lobbyService'
 import { applyMatchArenaProgression } from './arenaService'
 import type { PvpMatch } from '../types/match'
@@ -147,12 +147,26 @@ export async function tryInitializePvpBattle(
   const p2 = players.find((p) => p.id === match.player2Id)
   if (!p1 || !p2) return match
 
-  const deck1 = p1.deck && p1.deck.length > 0 ? p1.deck : [...STARTER_DECK]
-  const deck2 = p2.deck && p2.deck.length > 0 ? p2.deck : [...STARTER_DECK]
+  const class1 = parseClassId(p1.classId)
+  const class2 = parseClassId(p2.classId)
+  const deck1 =
+    p1.deck && p1.deck.length > 0 ? p1.deck : getClassStarterDeck(class1)
+  const deck2 =
+    p2.deck && p2.deck.length > 0 ? p2.deck : getClassStarterDeck(class2)
 
   const initial = createInitialPvpBattleState(
-    { id: p1.id, championName: p1.championName, deck: deck1 },
-    { id: p2.id, championName: p2.championName, deck: deck2 },
+    {
+      id: p1.id,
+      championName: p1.championName,
+      deck: deck1,
+      classId: class1,
+    },
+    {
+      id: p2.id,
+      championName: p2.championName,
+      deck: deck2,
+      classId: class2,
+    },
   )
 
   const now = new Date().toISOString()

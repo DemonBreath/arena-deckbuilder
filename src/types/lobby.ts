@@ -1,4 +1,5 @@
 import type { CardId } from '../game/cardDatabase'
+import type { ClassId } from '../game/classDatabase'
 import type { RelicId } from '../game/relicDatabase'
 import { ARENA_MAX_PLAYERS } from '../game/arenaConstants'
 
@@ -25,6 +26,7 @@ export interface LobbyPlayer {
   lobbyId: string
   sessionId: string
   championName: string
+  classId: ClassId
   readyState: ReadyState
   lives: number
   eliminated: boolean
@@ -43,6 +45,7 @@ export interface OnlineLobbySession {
   playerId: string
   sessionId: string
   championName: string
+  classId: ClassId
 }
 
 export function readyStateFromBoolean(ready: boolean): ReadyState {
