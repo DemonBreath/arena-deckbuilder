@@ -1,3 +1,4 @@
+import { logOnlineError } from '../lib/onlineLog'
 import { subscribePostgresChanges } from '../lib/realtimeSubscription'
 import { getSupabaseClient, isSupabaseConfigured } from '../lib/supabaseClient'
 import { STARTER_DECK, type CardId } from '../game/cardDatabase'
@@ -292,8 +293,8 @@ export function subscribeToLobbyPlayers(
     try {
       const players = await fetchLobbyPlayers(lobbyId)
       onPlayersChange(players)
-    } catch {
-      /* ignore transient fetch errors during realtime refresh */
+    } catch (err) {
+      logOnlineError('lobby:players-refresh', err)
     }
   }
 
@@ -320,8 +321,8 @@ export function subscribeToLobby(
     try {
       const lobby = await fetchLobby(lobbyId)
       onLobbyChange(lobby)
-    } catch {
-      /* ignore transient fetch errors */
+    } catch (err) {
+      logOnlineError('lobby:refresh', err)
     }
   }
 

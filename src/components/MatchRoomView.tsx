@@ -2,6 +2,7 @@ import { useOnlineConnectivity } from '../hooks/useOnlineConnectivity'
 import { usePvpBattle } from '../hooks/usePvpBattle'
 import { useOnlineRunStatus } from '../hooks/useOnlineRunStatus'
 import { ConnectionStatusBanner } from './ConnectionStatusBanner'
+import { OnlineErrorPanel } from './OnlineErrorPanel'
 import type { OnlineMatchSession, PvpMatch } from '../types/match'
 import { PvpCombatView } from './PvpCombatView'
 import { PvpRunStatusHeader } from './PvpRunStatusHeader'
@@ -42,6 +43,7 @@ export function MatchRoomView({
   const {
     match,
     battleView,
+    battleViewError,
     error,
     loading,
     actionPending,
@@ -56,10 +58,13 @@ export function MatchRoomView({
     stateVersion,
     turnStartAt,
     opponentLastSeenAt,
+    opponentChampionName,
   } = usePvpBattle(session, { onMatchComplete })
 
   const opponentName =
-    session.opponentChampionName ?? 'Waiting for opponent…'
+    opponentChampionName ??
+    session.opponentChampionName ??
+    'Waiting for opponent…'
 
   if (battleView && bothConnected) {
     return (
@@ -78,6 +83,21 @@ export function MatchRoomView({
         onEndTurn={() => void endTurn()}
         onLeave={onLeave}
       />
+    )
+  }
+
+  if (bothConnected && match?.battleState && battleViewError) {
+    return (
+      <section className="screen match-room-screen">
+        <ConnectionStatusBanner status={realtimeStatus} />
+        {runStatus && <PvpRunStatusHeader status={runStatus} title="Match Room" />}
+        <OnlineErrorPanel
+          title="Battle could not load"
+          message={battleViewError}
+          onRetry={() => void retryLoad()}
+          onDismiss={onLeave}
+        />
+      </section>
     )
   }
 
@@ -121,7 +141,7 @@ export function MatchRoomView({
         <strong>{connectionLabel(matchConnectionStatus)}</strong>
       </div>
 
-      {bothConnected && !battleView && (
+      {bothConnected && !battleView && !battleViewError && (
         <p className="match-room-ready-banner">
           Both players connected — starting battle…
         </p>

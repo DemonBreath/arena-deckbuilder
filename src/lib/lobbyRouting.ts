@@ -2,13 +2,28 @@ import { isValidLobbyCode, normalizeLobbyCode } from '../services/lobbyService'
 
 const LOBBY_PATH_PREFIX = '/lobby/'
 
+function stripBasePath(pathname: string): string {
+  const base = import.meta.env.BASE_URL ?? '/'
+  if (base === '/' || base === '') return pathname
+  const normalizedBase = base.endsWith('/') ? base.slice(0, -1) : base
+  if (
+    pathname === normalizedBase ||
+    pathname.startsWith(`${normalizedBase}/`)
+  ) {
+    const stripped = pathname.slice(normalizedBase.length)
+    return stripped === '' ? '/' : stripped
+  }
+  return pathname
+}
+
 export function getLobbyCodeFromPath(pathname = window.location.pathname): string | null {
+  const appPath = stripBasePath(pathname)
   const prefix = LOBBY_PATH_PREFIX
-  if (!pathname.toLowerCase().startsWith(prefix.toLowerCase())) {
+  if (!appPath.toLowerCase().startsWith(prefix.toLowerCase())) {
     return null
   }
 
-  const raw = pathname.slice(prefix.length).split('/')[0] ?? ''
+  const raw = appPath.slice(prefix.length).split('/')[0] ?? ''
   const code = normalizeLobbyCode(decodeURIComponent(raw))
   if (!isValidLobbyCode(code)) return null
   return code

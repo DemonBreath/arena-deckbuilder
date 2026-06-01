@@ -32,6 +32,42 @@ export function isPvpAllowedCard(cardId: CardId): cardId is PvpCardId {
   return (PVP_ALLOWED_CARDS as readonly string[]).includes(cardId)
 }
 
+const PVP_DECK_PAD_DEFAULTS: PvpCardId[] = [
+  'strike',
+  'guard',
+  'heavy_strike',
+  'strike_plus',
+  'guard_plus',
+]
+
+/** Cards that can appear in the online shop (PvP-legal upgrades). */
+export const PVP_SHOP_CARD_POOL: readonly CardId[] = [
+  'strike_plus',
+  'guard_plus',
+  'heavy_strike',
+] as const
+
+/** Strip non-PvP cards from a deck saved during shop rounds. */
+export function sanitizePvpDeck(deck: CardId[]): CardId[] {
+  const filtered = deck.filter(isPvpAllowedCard)
+  return filtered.length > 0 ? filtered : [...STARTER_DECK]
+}
+
+/** Build a shuffled draw pile using only PvP-legal cards (pads if the deck is thin). */
+export function buildPvpDrawPile(source?: CardId[]): CardId[] {
+  const raw = source ?? STARTER_DECK
+  const filtered = raw.filter(isPvpAllowedCard)
+  const pile = [...filtered]
+  for (const card of PVP_DECK_PAD_DEFAULTS) {
+    if (pile.length >= 10) break
+    pile.push(card)
+  }
+  while (pile.length < 5) {
+    pile.push(PVP_DECK_PAD_DEFAULTS[pile.length % PVP_DECK_PAD_DEFAULTS.length])
+  }
+  return shuffle(pile)
+}
+
 export interface PvpPlayerBattleState {
   playerId: string
   championName: string
@@ -340,8 +376,8 @@ export function createInitialPvpBattleState(
   player1: { id: string; championName: string; deck?: CardId[] },
   player2: { id: string; championName: string; deck?: CardId[] },
 ): PvpBattleState {
-  const deck1 = shuffle([...(player1.deck ?? STARTER_DECK)])
-  const deck2 = shuffle([...(player2.deck ?? STARTER_DECK)])
+  const deck1 = buildPvpDrawPile(player1.deck)
+  const deck2 = buildPvpDrawPile(player2.deck)
 
   const base: PvpBattleState = {
     version: 1,

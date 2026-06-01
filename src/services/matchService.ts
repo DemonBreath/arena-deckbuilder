@@ -1,3 +1,4 @@
+import { logOnlineError } from '../lib/onlineLog'
 import { subscribePostgresChanges } from '../lib/realtimeSubscription'
 import { getSupabaseClient } from '../lib/supabaseClient'
 import { grantByeGold } from './arenaService'
@@ -297,8 +298,8 @@ export function subscribeToMatch(
     try {
       const match = await fetchMatch(matchId)
       onMatchChange(match)
-    } catch {
-      /* ignore transient errors */
+    } catch (err) {
+      logOnlineError('match:refresh', err)
     }
   }
 

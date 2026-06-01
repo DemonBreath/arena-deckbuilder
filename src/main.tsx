@@ -1,9 +1,12 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
+import { OnlineErrorBoundary } from './components/OnlineErrorBoundary.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <OnlineErrorBoundary>
+      <App />
+    </OnlineErrorBoundary>
   </StrictMode>,
 )

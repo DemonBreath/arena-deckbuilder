@@ -1,4 +1,5 @@
-import { STARTER_DECK, SHOP_CARD_POOL, type CardId } from '../game/cardDatabase'
+import { STARTER_DECK, type CardId } from '../game/cardDatabase'
+import { PVP_SHOP_CARD_POOL } from '../game/pvpBattleState'
 import type { RelicId } from '../game/relicDatabase'
 
 export interface OnlineRunState {
@@ -22,9 +23,10 @@ function storageKey(lobbyId: string, sessionId: string): string {
 }
 
 function generateShopOffers(): CardId[] {
+  const pool = PVP_SHOP_CARD_POOL
   return Array.from({ length: 3 }, () => {
-    const index = Math.floor(Math.random() * SHOP_CARD_POOL.length)
-    return SHOP_CARD_POOL[index]
+    const index = Math.floor(Math.random() * pool.length)
+    return pool[index]
   })
 }
 

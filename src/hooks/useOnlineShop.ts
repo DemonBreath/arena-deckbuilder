@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ONLINE_SHOP_CARD_PRICE } from '../game/arenaConstants'
+import { sanitizePvpDeck } from '../game/pvpBattleState'
+import { logOnlineError } from '../lib/onlineLog'
 import {
   markPlayerShopDone,
   syncPlayerDeckToServer,
@@ -51,7 +53,8 @@ export function useOnlineShop(session: OnlineLobbySession | null) {
           setRunState(local)
           setLastReward(local.lastReward)
         }
-      } catch {
+      } catch (err) {
+        logOnlineError('shop:refresh', err)
         const local = refreshShopOffers(
           loadOnlineRun(session.lobbyId, session.sessionId),
         )
@@ -79,7 +82,7 @@ export function useOnlineShop(session: OnlineLobbySession | null) {
       if (serverGold < ONLINE_SHOP_CARD_PRICE) return
 
       const nextGold = serverGold - ONLINE_SHOP_CARD_PRICE
-      const nextDeck = [...runState.deck, cardId]
+      const nextDeck = sanitizePvpDeck([...runState.deck, cardId])
       const nextRun: OnlineRunState = {
         ...runState,
         deck: nextDeck,
@@ -116,7 +119,7 @@ export function useOnlineShop(session: OnlineLobbySession | null) {
     try {
       await syncPlayerDeckToServer(
         session.playerId,
-        runState.deck,
+        sanitizePvpDeck(runState.deck),
         runState.relics,
       )
       await markPlayerShopDone(session.playerId)

@@ -2,9 +2,13 @@ import { useEffect, useState } from 'react'
 import { PVP_LOSS_GOLD, PVP_WIN_GOLD } from '../game/arenaConstants'
 import { buildPvpMatchSummary } from '../game/pvpBattleState'
 import { useOnlineRunStatus } from '../hooks/useOnlineRunStatus'
-import { fetchLobbyPlayer } from '../services/lobbyService'
+import {
+  fetchLobbyPlayer,
+  subscribeToLobbyPlayers,
+} from '../services/lobbyService'
 import type { OnlineLobbySession } from '../types/lobby'
 import type { PvpMatch } from '../types/match'
+import { OnlineErrorPanel } from './OnlineErrorPanel'
 import { PvpRunStatusHeader } from './PvpRunStatusHeader'
 
 interface MatchResultsViewProps {
@@ -20,14 +24,40 @@ export function MatchResultsView({
 }: MatchResultsViewProps) {
   const runStatus = useOnlineRunStatus(session)
   const [lives, setLives] = useState(3)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
     const load = async () => {
-      const player = await fetchLobbyPlayer(session.playerId)
-      if (player) setLives(player.lives)
+      try {
+        const player = await fetchLobbyPlayer(session.playerId)
+        if (player) setLives(player.lives)
+      } catch (err) {
+        setLoadError(
+          err instanceof Error ? err.message : 'Failed to load results.',
+        )
+      }
     }
     void load()
-  }, [session.playerId])
+
+    const unsub = subscribeToLobbyPlayers(session.lobbyId, (players) => {
+      const me = players.find((p) => p.id === session.playerId)
+      if (me) setLives(me.lives)
+    })
+
+    return unsub
+  }, [session.playerId, session.lobbyId, match.winnerPlayerId])
+
+  if (loadError) {
+    return (
+      <section className="screen match-results-screen">
+        <OnlineErrorPanel
+          title="Results unavailable"
+          message={loadError}
+          onDismiss={onContinue}
+        />
+      </section>
+    )
+  }
 
   if (!match.battleState || !runStatus) {
     return (
@@ -49,10 +79,11 @@ export function MatchResultsView({
   if (!summary) {
     return (
       <section className="screen match-results-screen">
-        <p>Match results unavailable.</p>
-        <button type="button" className="primary-button" onClick={onContinue}>
-          Continue
-        </button>
+        <OnlineErrorPanel
+          title="Results unavailable"
+          message="Match summary could not be built from battle data."
+          onDismiss={onContinue}
+        />
       </section>
     )
   }
