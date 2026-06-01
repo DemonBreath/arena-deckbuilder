@@ -13,14 +13,23 @@ import { BattleLogPanel } from './BattleLogPanel'
 import { CardButton } from './CardButton'
 import { RelicsPanel } from './RelicsPanel'
 import { RunHeader } from './RunHeader'
+import { ClassInfoBadge } from './ClassInfoBadge'
 
 interface BattleViewProps {
   state: GameState
   onPlayCard: (handIndex: number) => void
   onEndTurn: () => void
+  onResetClassTest?: () => void
+  onExitClassTest?: () => void
 }
 
-export function BattleView({ state, onPlayCard, onEndTurn }: BattleViewProps) {
+export function BattleView({
+  state,
+  onPlayCard,
+  onEndTurn,
+  onResetClassTest,
+  onExitClassTest,
+}: BattleViewProps) {
   const battleActive = isBattleActive(state)
   const archetype = getOpponent(state.opponentId)
   const arenaOpponentName = getCurrentArenaOpponentName(state)
@@ -29,9 +38,21 @@ export function BattleView({ state, onPlayCard, onEndTurn }: BattleViewProps) {
   const maxHp = getSoloPlayerMaxHp(state)
   const maxEnergy = getSoloPlayerMaxEnergy(state)
 
+  const testFinished = state.classTestMode && state.battleWon !== null
+
   return (
     <div className="battle-view">
-      <RunHeader state={state} title="Battle" />
+      {state.classTestMode && (
+        <div className="class-test-banner">
+          <strong>Class Test Lab</strong>
+          <span>Training Dummy · 28 HP · reset anytime</span>
+        </div>
+      )}
+
+      <RunHeader
+        state={state}
+        title={state.classTestMode ? 'Class Test' : 'Battle'}
+      />
 
       <RelicsPanel relics={state.relics} />
 
@@ -39,12 +60,17 @@ export function BattleView({ state, onPlayCard, onEndTurn }: BattleViewProps) {
         <div className="battle-view__combat">
           <div className="battle-view__arena">
             <section className="fighter-panel fighter-panel--enemy">
-              <h3>{arenaOpponentName}</h3>
-              <p className="fighter-archetype">{archetype.name} deck</p>
+              <h3>
+                {state.classTestMode ? 'Training Dummy' : arenaOpponentName}
+              </h3>
+              <p className="fighter-archetype">
+                {state.classTestMode ? 'Bruiser training deck' : `${archetype.name} deck`}
+              </p>
               <p className="hp-bar">
                 <span>HP</span>
                 <strong>
-                  {Math.max(0, state.enemyHp)} / {archetype.maxHp}
+                  {Math.max(0, state.enemyHp)} /{' '}
+                  {state.classTestMode ? 28 : archetype.maxHp}
                 </strong>
               </p>
               {state.enemyBlock > 0 && (
@@ -55,7 +81,13 @@ export function BattleView({ state, onPlayCard, onEndTurn }: BattleViewProps) {
 
             <section className="fighter-panel fighter-panel--player">
               <h3>{state.championName}</h3>
-              <p className="fighter-archetype">{classDef.name}</p>
+              <ClassInfoBadge
+                classId={state.classId}
+                showPassiveTooltip
+              />
+              <p className="fighter-passive-hint" title={classDef.passive.description}>
+                {classDef.passive.name}: {classDef.passive.description}
+              </p>
               <p className="hp-bar">
                 <span>HP</span>
                 <strong>
@@ -95,14 +127,44 @@ export function BattleView({ state, onPlayCard, onEndTurn }: BattleViewProps) {
             )}
           </div>
 
-          <button
-            type="button"
-            className="primary-button"
-            onClick={onEndTurn}
-            disabled={!battleActive}
-          >
-            End Turn
-          </button>
+          {testFinished ? (
+            <div className="class-test-battle-actions">
+              <p className="battle-message">{state.message}</p>
+              <button
+                type="button"
+                className="primary-button"
+                onClick={onResetClassTest}
+              >
+                Reset Test Battle
+              </button>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={onExitClassTest}
+              >
+                Exit Test Lab
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="primary-button"
+              onClick={onEndTurn}
+              disabled={!battleActive}
+            >
+              End Turn
+            </button>
+          )}
+
+          {state.classTestMode && battleActive && onResetClassTest && (
+            <button
+              type="button"
+              className="secondary-button class-test-reset-inline"
+              onClick={onResetClassTest}
+            >
+              Reset Test
+            </button>
+          )}
         </div>
 
         <BattleLogPanel entries={state.battleLog} />

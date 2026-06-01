@@ -3,7 +3,9 @@ import { getCard } from '../game/cardDatabase'
 import {
   formatClassGoldLabel,
   formatDeckPreview,
+  getClassComparisonRows,
   getClassDefinition,
+  getClassFilterRoles,
   getClassTeasers,
   getPlayableClasses,
   type ClassDefinition,
@@ -22,9 +24,14 @@ interface ClassSelectionScreenProps {
 
 const ALL_ROLES = 'All' as const
 type RoleFilter = typeof ALL_ROLES | ClassRole
+type ViewMode = 'compare' | 'detail'
 
 function roleClassName(role: ClassRole): string {
   return `class-role-badge class-role-badge--${role.toLowerCase()}`
+}
+
+function difficultyClassName(difficulty: string): string {
+  return `class-difficulty class-difficulty--${difficulty.toLowerCase()}`
 }
 
 function ClassPickerCard({
@@ -58,6 +65,9 @@ function ClassDetailPanel({ definition }: { definition: ClassDefinition }) {
     <div className="class-detail-panel">
       <div className="class-detail-panel__header">
         <span className={roleClassName(definition.role)}>{definition.role}</span>
+        <span className={difficultyClassName(definition.difficulty)}>
+          {definition.difficulty}
+        </span>
         <h2>{definition.name}</h2>
         <p className="class-detail-panel__tagline">{definition.tagline}</p>
         <p className="class-detail-panel__description">{definition.description}</p>
@@ -73,8 +83,12 @@ function ClassDetailPanel({ definition }: { definition: ClassDefinition }) {
           <strong>{definition.stats.turnEnergy}</strong>
         </div>
         <div>
-          <span>Arena lives</span>
-          <strong>{definition.stats.arenaLives}</strong>
+          <span>Deck style</span>
+          <strong>{definition.deckStyle}</strong>
+        </div>
+        <div>
+          <span>Difficulty</span>
+          <strong>{definition.difficulty}</strong>
         </div>
         {goldLabel && (
           <div className="class-detail-panel__gold">
@@ -87,6 +101,15 @@ function ClassDetailPanel({ definition }: { definition: ClassDefinition }) {
       <div className="class-detail-panel__passive">
         <h3>Passive — {definition.passive.name}</h3>
         <p>{definition.passive.description}</p>
+      </div>
+
+      <div className="class-detail-panel__identity">
+        <p>
+          <strong>Strength:</strong> {definition.intendedStrength}
+        </p>
+        <p>
+          <strong>Weakness:</strong> {definition.intendedWeakness}
+        </p>
       </div>
 
       <div className="class-detail-panel__deck">
@@ -103,6 +126,87 @@ function ClassDetailPanel({ definition }: { definition: ClassDefinition }) {
   )
 }
 
+function ClassComparisonTable({
+  selectedClassId,
+  onSelectClass,
+  roleFilter,
+}: {
+  selectedClassId: ClassId
+  onSelectClass: (classId: ClassId) => void
+  roleFilter: RoleFilter
+}) {
+  const rows = useMemo(() => {
+    const all = getClassComparisonRows()
+    if (roleFilter === ALL_ROLES) return all
+    return all.filter((r) => r.role === roleFilter)
+  }, [roleFilter])
+
+  return (
+    <div className="class-comparison-wrap">
+      <table className="class-comparison-table">
+        <thead>
+          <tr>
+            <th>Class</th>
+            <th>Role</th>
+            <th>HP</th>
+            <th>Energy</th>
+            <th>Deck</th>
+            <th>Passive</th>
+            <th>Difficulty</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr
+              key={row.id}
+              className={
+                row.id === selectedClassId
+                  ? 'class-comparison-table__row--selected'
+                  : undefined
+              }
+              onClick={() => onSelectClass(row.id)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  onSelectClass(row.id)
+                }
+              }}
+            >
+              <td>
+                <strong>{row.name}</strong>
+                {row.goldLabel && (
+                  <span className="class-comparison-table__gold">{row.goldLabel}</span>
+                )}
+              </td>
+              <td>
+                <span className={roleClassName(row.role)}>{row.role}</span>
+              </td>
+              <td>{row.maxHp}</td>
+              <td>{row.turnEnergy}</td>
+              <td>{row.deckStyle}</td>
+              <td title={row.passiveSummary}>
+                <span className="class-comparison-table__passive">
+                  {row.passiveName}
+                </span>
+                <span className="class-comparison-table__passive-hint">
+                  {row.passiveSummary}
+                </span>
+              </td>
+              <td>
+                <span className={difficultyClassName(row.difficulty)}>
+                  {row.difficulty}
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 export function ClassSelectionScreen({
   selectedClassId,
   onSelectClass,
@@ -113,11 +217,9 @@ export function ClassSelectionScreen({
 }: ClassSelectionScreenProps) {
   const playable = getPlayableClasses()
   const teasers = getClassTeasers()
-  const roles = useMemo(
-    () => [...new Set(playable.map((c) => c.role))].sort(),
-    [playable],
-  )
+  const roles = getClassFilterRoles()
   const [roleFilter, setRoleFilter] = useState<RoleFilter>(ALL_ROLES)
+  const [viewMode, setViewMode] = useState<ViewMode>('compare')
 
   const filtered = useMemo(() => {
     if (roleFilter === ALL_ROLES) return playable
@@ -131,8 +233,7 @@ export function ClassSelectionScreen({
       <header className="class-selection-screen__hero">
         <h1>Choose Your Class</h1>
         <p className="class-selection-screen__subtitle">
-          Your class is your arena identity — deck, stats, and passive travel with
-          you for the whole run.
+          Compare stats side-by-side, then lock in your arena identity for the run.
         </p>
         {championName && (
           <p className="class-selection-screen__champion">
@@ -143,6 +244,23 @@ export function ClassSelectionScreen({
           {playable.length} playable classes · no unlocks · pick any time
         </p>
       </header>
+
+      <div className="class-selection-view-toggle" role="tablist">
+        <button
+          type="button"
+          className={`class-selection-view-btn ${viewMode === 'compare' ? 'class-selection-view-btn--active' : ''}`}
+          onClick={() => setViewMode('compare')}
+        >
+          Compare all
+        </button>
+        <button
+          type="button"
+          className={`class-selection-view-btn ${viewMode === 'detail' ? 'class-selection-view-btn--active' : ''}`}
+          onClick={() => setViewMode('detail')}
+        >
+          Class detail
+        </button>
+      </div>
 
       <div className="class-selection-filters" role="tablist" aria-label="Filter by role">
         <button
@@ -164,20 +282,41 @@ export function ClassSelectionScreen({
         ))}
       </div>
 
-      <div className="class-selection-layout">
-        <div className="class-picker-grid">
-          {filtered.map((definition) => (
-            <ClassPickerCard
-              key={definition.id}
-              definition={definition}
-              selected={selectedClassId === definition.id}
-              onSelect={() => onSelectClass(definition.id)}
-            />
-          ))}
+      {viewMode === 'compare' ? (
+        <ClassComparisonTable
+          selectedClassId={selectedClassId}
+          onSelectClass={onSelectClass}
+          roleFilter={roleFilter}
+        />
+      ) : (
+        <div className="class-selection-layout">
+          <div className="class-picker-grid">
+            {filtered.map((definition) => (
+              <ClassPickerCard
+                key={definition.id}
+                definition={definition}
+                selected={selectedClassId === definition.id}
+                onSelect={() => onSelectClass(definition.id)}
+              />
+            ))}
+          </div>
+          <ClassDetailPanel definition={selected} />
         </div>
+      )}
 
-        <ClassDetailPanel definition={selected} />
-      </div>
+      {viewMode === 'compare' && (
+        <div className="class-selection-compare-summary">
+          <span className={roleClassName(selected.role)}>{selected.role}</span>
+          <strong>{selected.name}</strong>
+          <span>
+            {selected.stats.maxHp} HP · {selected.stats.turnEnergy} energy ·{' '}
+            {selected.deckStyle}
+          </span>
+          <p title={selected.passive.description}>
+            {selected.passive.name}: {selected.passive.description}
+          </p>
+        </div>
+      )}
 
       {teasers.length > 0 && (
         <section className="class-teasers-section" aria-label="Coming later">

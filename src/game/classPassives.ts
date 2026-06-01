@@ -6,6 +6,17 @@ import {
 } from './classDatabase'
 import { PVP_HAND_SIZE } from './pvpBattleState'
 
+/** Opening-turn bonuses only — not every turn. */
+export function getClassOpeningEnergyBonus(
+  classId: ClassId,
+  playerTurnNumber: number,
+): number {
+  if (passiveKind(classId) === 'opening_tempo' && playerTurnNumber === 1) {
+    return 2
+  }
+  return 0
+}
+
 export interface ClassDamageBonusContext {
   classId: ClassId
   cardId: CardId
@@ -47,7 +58,7 @@ function passiveKind(classId: ClassId): ClassPassiveKind {
 export function getClassTurnStartBlock(classId: ClassId): number {
   switch (passiveKind(classId)) {
     case 'fortify':
-      return 2
+      return 1
     case 'ice_armor':
     case 'paladin_aegis':
       return 1
@@ -56,10 +67,7 @@ export function getClassTurnStartBlock(classId: ClassId): number {
   }
 }
 
-export function getClassTurnHandSize(classId: ClassId): number {
-  if (passiveKind(classId) === 'extra_draw') {
-    return PVP_HAND_SIZE + 1
-  }
+export function getClassTurnHandSize(_classId: ClassId): number {
   return PVP_HAND_SIZE
 }
 
@@ -70,11 +78,11 @@ export function getClassBonusDamage(ctx: ClassDamageBonusContext): number {
     case 'bloodlust':
       return ctx.cardId === 'strike' || ctx.cardId === 'heavy_strike' ? 2 : 0
     case 'combo_shot':
-      return isStrikeCard(ctx.cardId) && ctx.strikesPlayedThisTurn > 0 ? 3 : 0
+      return isStrikeCard(ctx.cardId) && ctx.strikesPlayedThisTurn > 0 ? 2 : 0
     case 'burn_touch':
       return isAttackCard(ctx.cardId) ? 1 : 0
     case 'assassin_burst':
-      return isAttackCard(ctx.cardId) && ctx.attacksPlayedThisTurn === 0 ? 4 : 0
+      return isAttackCard(ctx.cardId) && ctx.attacksPlayedThisTurn === 0 ? 2 : 0
     case 'alchemist_potion':
       return isAttackCard(ctx.cardId) && ctx.handIndex % 2 === 0 ? 1 : 0
     default:
@@ -91,8 +99,8 @@ export function applyClassPostCardEffects(
 
   if (ctx.cardId === 'guard' || ctx.cardId === 'guard_plus') {
     if (kind === 'life_drain') {
-      hp = Math.min(ctx.maxHp, hp + 2)
-      parts.push('Life Drain (+2 HP)')
+      hp = Math.min(ctx.maxHp, hp + 1)
+      parts.push('Life Drain (+1 HP)')
     } else if (kind === 'paladin_aegis') {
       hp = Math.min(ctx.maxHp, hp + 1)
       parts.push('Aegis (+1 HP)')

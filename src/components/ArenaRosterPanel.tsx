@@ -37,7 +37,7 @@ export function ArenaRosterPanel({
             <tr>
               <th>Rank</th>
               <th>Champion</th>
-              <th>Class</th>
+              <th>Class / Role</th>
               <th>Lives</th>
               <th>Gold</th>
               <th>Defeated</th>
@@ -67,7 +67,17 @@ export function ArenaRosterPanel({
                       <span className="standings-table__you"> (you)</span>
                     )}
                   </td>
-                  <td>{getClassDefinition(player.classId).name}</td>
+                  <td>
+                    <span
+                      className="arena-roster-class"
+                      title={getClassDefinition(player.classId).passive.description}
+                    >
+                      {getClassDefinition(player.classId).name}
+                    </span>
+                    <span className="arena-roster-class-role">
+                      {getClassDefinition(player.classId).role}
+                    </span>
+                  </td>
                   <td>{player.eliminated ? '—' : player.lives}</td>
                   <td>{player.gold}</td>
                   <td>{player.opponentsDefeated}</td>

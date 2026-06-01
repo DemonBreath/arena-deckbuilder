@@ -8,6 +8,7 @@ import {
   applyClassPostCardEffects,
   formatClassPassiveLog,
   getClassBonusDamage,
+  getClassOpeningEnergyBonus,
   getClassTurnHandSize,
   getClassTurnStartBlock,
   shouldIncrementAttackCounter,
@@ -79,6 +80,9 @@ export interface GameState {
   screen: Screen
   championName: string
   classId: ClassId
+  /** Dev class test lab — single training fight, no arena progression. */
+  classTestMode: boolean
+  playerTurnCount: number
   strikesPlayedThisTurn: number
   attacksPlayedThisTurn: number
   currentArenaContestantId: string | null
@@ -114,6 +118,8 @@ export const INITIAL_STATE: GameState = {
   screen: 'title',
   championName: '',
   classId: DEFAULT_CLASS_ID,
+  classTestMode: false,
+  playerTurnCount: 0,
   strikesPlayedThisTurn: 0,
   attacksPlayedThisTurn: 0,
   currentArenaContestantId: null,
@@ -149,6 +155,9 @@ export type GameAction =
   | { type: 'SET_CHAMPION_NAME'; name: string }
   | { type: 'SET_CLASS'; classId: ClassId }
   | { type: 'START_RUN' }
+  | { type: 'START_CLASS_TEST' }
+  | { type: 'RESET_CLASS_TEST' }
+  | { type: 'EXIT_CLASS_TEST' }
   | { type: 'VIEW_DAILY_CHAMPIONS' }
   | { type: 'GO_TITLE' }
   | { type: 'PLAY_CARD'; handIndex: number }
@@ -253,15 +262,24 @@ export function getSoloPlayerMaxEnergy(state: GameState): number {
 }
 
 function beginPlayerTurn(state: GameState): GameState {
+  const turnNumber = state.playerTurnCount + 1
+  const openingBonus = getClassOpeningEnergyBonus(state.classId, turnNumber)
   let next = appendLog(state, '— Your turn —')
   const startingBlock = getClassTurnStartBlock(state.classId)
   next = {
     ...next,
+    playerTurnCount: turnNumber,
     block: startingBlock,
-    energy: getClassTurnEnergy(state.classId),
+    energy: getClassTurnEnergy(state.classId) + openingBonus,
     hand: [],
     strikesPlayedThisTurn: 0,
     attacksPlayedThisTurn: 0,
+  }
+  if (openingBonus > 0) {
+    next = appendLog(
+      next,
+      `${getClassDefinition(state.classId).passive.name} (+${openingBonus} opening energy).`,
+    )
   }
   const passiveLog = formatClassPassiveLog(state.classId)
   if (passiveLog) {
@@ -288,7 +306,58 @@ function applyIronCharmBattleStart(state: GameState): GameState {
   )
 }
 
+const CLASS_TEST_OPPONENT_ID: OpponentId = 'bruiser'
+const CLASS_TEST_DUMMY_HP = 28
+
+function setupClassTestBattle(state: GameState): GameState {
+  const classDef = getClassDefinition(state.classId)
+  const shuffled = shuffle([...getClassStarterDeck(state.classId)])
+
+  let next: GameState = {
+    ...state,
+    screen: 'battle',
+    classTestMode: true,
+    playerTurnCount: 0,
+    currentArenaContestantId: null,
+    opponentId: CLASS_TEST_OPPONENT_ID,
+    turtlePhase: 'attack',
+    playerHp: getClassMaxHp(state.classId),
+    enemyHp: CLASS_TEST_DUMMY_HP,
+    enemyBlock: 0,
+    drawPile: shuffled,
+    discardPile: [],
+    hand: [],
+    block: 0,
+    energy: 0,
+    gold: 0,
+    lives: 1,
+    battleNumber: 1,
+    message: 'Class test — Training Dummy. Play cards, then end turn.',
+    battleWon: null,
+    battleLog: [],
+    relics: [],
+    rewardType: 'none',
+    rewardCards: [],
+    rewardRelics: [],
+    rewardClaimed: false,
+    contestants: [],
+    shopOffers: [],
+    lastReward: 0,
+    championSubmitted: false,
+  }
+
+  next = appendLog(
+    next,
+    `Class test: ${classDef.name} vs Training Dummy (${CLASS_TEST_DUMMY_HP} HP).`,
+  )
+  return beginPlayerTurn(next)
+}
+
 function setupBattle(state: GameState): GameState {
+  if (state.classTestMode) {
+    return setupClassTestBattle(state)
+  }
+
   const arenaOpponent = pickRandomActiveOpponent(state.contestants)
   if (!arenaOpponent) {
     return triggerVictory(syncRoster(state))
@@ -303,6 +372,7 @@ function setupBattle(state: GameState): GameState {
   let next: GameState = {
     ...state,
     screen: 'battle',
+    playerTurnCount: 0,
     currentArenaContestantId: arenaOpponent.id,
     opponentId,
     turtlePhase,
@@ -500,6 +570,22 @@ function resolveBattleEnd(
   state: GameState,
   won: boolean,
 ): GameState {
+  if (state.classTestMode) {
+    const classDef = getClassDefinition(state.classId)
+    const outcome = won ? 'Victory' : 'Defeat'
+    let next = appendLog(
+      state,
+      `Class test ${outcome} — ${classDef.name} vs Training Dummy.`,
+    )
+    return {
+      ...next,
+      battleWon: won,
+      message: won
+        ? 'Test won! Reset to try again or exit to title.'
+        : 'Test lost. Reset to try again or exit to title.',
+    }
+  }
+
   const arenaName = getCurrentArenaOpponentName(state)
   const archetype = getOpponent(state.opponentId)
   const outcome = won ? 'Victory' : 'Defeat'
@@ -726,7 +812,36 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ...INITIAL_STATE,
         championName: state.championName,
         classId: state.classId,
+        classTestMode: false,
       }
+    }
+
+    case 'EXIT_CLASS_TEST': {
+      return {
+        ...INITIAL_STATE,
+        championName: state.championName,
+        classId: state.classId,
+        classTestMode: false,
+      }
+    }
+
+    case 'START_CLASS_TEST': {
+      const name = state.championName.trim() || 'Test Fighter'
+      return setupClassTestBattle({
+        ...INITIAL_STATE,
+        championName: name,
+        classId: state.classId,
+        classTestMode: true,
+      })
+    }
+
+    case 'RESET_CLASS_TEST': {
+      if (!state.classTestMode) return state
+      return setupClassTestBattle({
+        ...state,
+        battleLog: [],
+        battleWon: null,
+      })
     }
 
     case 'SET_CLASS': {

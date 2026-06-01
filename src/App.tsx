@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { ClassSelectionScreen } from './components/ClassSelectionScreen'
+import { ClassTestScreen } from './components/ClassTestScreen'
 import { RejoinPrompt } from './components/RejoinPrompt'
 import { LobbyInviteJoinView } from './components/LobbyInviteJoinView'
 import { BattleView } from './components/BattleView'
@@ -109,6 +110,10 @@ function App() {
     loadSelectedClass(),
   )
   const [showClassSelection, setShowClassSelection] = useState(false)
+  const [showClassTest, setShowClassTest] = useState(false)
+  const showClassTestLab =
+    import.meta.env.DEV ||
+    new URLSearchParams(window.location.search).has('classtest')
   const [pendingEntryAction, setPendingEntryAction] = useState<
     'join' | 'solo' | 'invite' | null
   >(null)
@@ -575,6 +580,27 @@ function App() {
     state.screen === 'title'
 
   if (
+    showClassTest &&
+    !onlineSession &&
+    state.screen === 'title'
+  ) {
+    return (
+      <div className="app">
+        <ClassTestScreen
+          selectedClassId={selectedClassId}
+          onSelectClass={handleSelectClass}
+          onStartTest={(name) => {
+            dispatch({ type: 'SET_CHAMPION_NAME', name })
+            dispatch({ type: 'START_CLASS_TEST' })
+            setShowClassTest(false)
+          }}
+          onBack={() => setShowClassTest(false)}
+        />
+      </div>
+    )
+  }
+
+  if (
     showClassSelection &&
     !onlineSession &&
     state.screen === 'title'
@@ -655,7 +681,7 @@ function App() {
             Enter the arena, defeat every opponent, and claim the daily crown.
           </p>
           <p className="subtitle">
-            Milestone 19 — 12-class arena roster
+            Milestone 20 — class balance & identity UI
           </p>
 
           {onlineAvailable && pendingRejoin && !onlineSession && (
@@ -760,6 +786,15 @@ function App() {
             >
               Daily Champions
             </button>
+            {showClassTestLab && (
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setShowClassTest(true)}
+              >
+                Class Test Lab
+              </button>
+            )}
           </div>
 
           {!canStart && (
@@ -779,6 +814,19 @@ function App() {
             dispatch({ type: 'PLAY_CARD', handIndex })
           }
           onEndTurn={() => dispatch({ type: 'END_TURN' })}
+          onResetClassTest={
+            state.classTestMode
+              ? () => dispatch({ type: 'RESET_CLASS_TEST' })
+              : undefined
+          }
+          onExitClassTest={
+            state.classTestMode
+              ? () => {
+                  dispatch({ type: 'EXIT_CLASS_TEST' })
+                  setShowClassTest(true)
+                }
+              : undefined
+          }
         />
       )}
 

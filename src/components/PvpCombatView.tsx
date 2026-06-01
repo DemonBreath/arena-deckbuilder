@@ -17,6 +17,8 @@ import { PvpRunStatusHeader } from './PvpRunStatusHeader'
 import { PvpTimerWarnings } from './PvpTimerWarnings'
 import { PvpTurnTimer } from './PvpTurnTimer'
 import { SyncDebugPanel } from './SyncDebugPanel'
+import { ClassInfoBadge } from './ClassInfoBadge'
+import { getClassDefinition } from '../game/classDatabase'
 
 interface PvpCombatViewProps {
   session: OnlineMatchSession
@@ -121,7 +123,17 @@ export function PvpCombatView({
 
             <section className="fighter-panel fighter-panel--enemy">
               <h3>{view.opponent.championName}</h3>
-              <p className="fighter-archetype">Opponent</p>
+              <ClassInfoBadge
+                classId={view.opponent.classId}
+                showPassiveTooltip
+                compact
+              />
+              <p
+                className="fighter-passive-hint"
+                title={getClassDefinition(view.opponent.classId).passive.description}
+              >
+                {getClassDefinition(view.opponent.classId).passive.description}
+              </p>
               <p className="hp-bar">
                 <span>HP</span>
                 <strong>
@@ -139,6 +151,17 @@ export function PvpCombatView({
 
             <section className="fighter-panel fighter-panel--player">
               <h3>{view.me.championName}</h3>
+              <ClassInfoBadge
+                classId={view.me.classId}
+                showPassiveTooltip
+                compact
+              />
+              <p
+                className="fighter-passive-hint"
+                title={getClassDefinition(view.me.classId).passive.description}
+              >
+                {getClassDefinition(view.me.classId).passive.description}
+              </p>
               <p className="hp-bar">
                 <span>HP</span>
                 <strong>

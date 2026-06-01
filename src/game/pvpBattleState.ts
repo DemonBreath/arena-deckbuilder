@@ -3,6 +3,7 @@ import {
   applyClassPostCardEffects,
   formatClassPassiveLog,
   getClassBonusDamage,
+  getClassOpeningEnergyBonus,
   getClassTurnHandSize,
   getClassTurnStartBlock,
   shouldIncrementAttackCounter,
@@ -99,6 +100,8 @@ export interface PvpPlayerBattleState {
   strikesPlayedThisTurn: number
   /** Assassin / tempo tracking for first-attack bonuses. */
   attacksPlayedThisTurn: number
+  /** Turns this player has started (for opening-tempo passives). */
+  turnsTaken: number
 }
 
 export interface PvpBattleCombatant {
@@ -240,6 +243,7 @@ function normalizeCombatantPlayer(
     maxHp,
     strikesPlayedThisTurn: player.strikesPlayedThisTurn ?? 0,
     attacksPlayedThisTurn: player.attacksPlayedThisTurn ?? 0,
+    turnsTaken: player.turnsTaken ?? 0,
   }
 }
 
@@ -322,11 +326,14 @@ function drawCardsForPlayer(
 
 function beginTurn(state: PvpBattleState, slot: PlayerSlot): PvpBattleState {
   const player = normalizeCombatantPlayer(getPlayer(state, slot))
+  const turnNumber = player.turnsTaken + 1
+  const openingBonus = getClassOpeningEnergyBonus(player.classId, turnNumber)
   const startBlock = getClassTurnStartBlock(player.classId)
   let cleared: PvpPlayerBattleState = {
     ...player,
+    turnsTaken: turnNumber,
     block: startBlock,
-    energy: getClassTurnEnergy(player.classId),
+    energy: getClassTurnEnergy(player.classId) + openingBonus,
     hand: [],
     strikesPlayedThisTurn: 0,
     attacksPlayedThisTurn: 0,
@@ -334,6 +341,12 @@ function beginTurn(state: PvpBattleState, slot: PlayerSlot): PvpBattleState {
   const handSize = getClassTurnHandSize(player.classId)
   const drawn = drawCardsForPlayer(cleared, handSize)
   let next = setPlayer(state, slot, drawn)
+  if (openingBonus > 0) {
+    next = appendLog(
+      next,
+      `${player.championName} — Borrowed Moment (+${openingBonus} opening energy).`,
+    )
+  }
   const passiveLog = formatClassPassiveLog(player.classId)
   if (passiveLog) {
     next = appendLog(next, `${player.championName} — ${passiveLog}`)
@@ -453,6 +466,7 @@ function buildCombatant(
     hand: [],
     strikesPlayedThisTurn: 0,
     attacksPlayedThisTurn: 0,
+    turnsTaken: 0,
   }
 }
 
