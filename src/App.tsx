@@ -269,32 +269,38 @@ function App() {
     dispatch({ type: 'START_RUN' })
   }
 
-  const handleEnterMatch = (session: OnlineMatchSession) => {
-    setMatchSession(session)
-    resetOnlineScreens()
-    updatePersistedMatchId(session.matchId)
-    if (onlineSession) {
-      persistFromLobbySession(onlineSession, session.matchId)
-    }
-  }
+  const handleEnterMatch = useCallback(
+    (match: OnlineMatchSession) => {
+      setMatchSession(match)
+      resetOnlineScreens()
+      updatePersistedMatchId(match.matchId)
+      setOnlineSession((lobbySession) => {
+        if (lobbySession) {
+          persistFromLobbySession(lobbySession, match.matchId)
+        }
+        return lobbySession
+      })
+    },
+    [resetOnlineScreens],
+  )
 
-  const handleBye = () => {
+  const handleBye = useCallback(() => {
     setShowBye(true)
     setMatchSession(null)
     setShowShop(false)
     setShowChampion(false)
     setShowSpectator(false)
-  }
+  }, [])
 
-  const handleSpectator = () => {
+  const handleSpectator = useCallback(() => {
     setMatchSession(null)
     setShowBye(false)
     setShowShop(false)
     setShowChampion(false)
     setShowSpectator(true)
-  }
+  }, [])
 
-  const handleEnterShop = () => {
+  const handleEnterShop = useCallback(() => {
     if (onlineSession && showBye) {
       setLastRoundGold(
         onlineSession.lobbyId,
@@ -307,18 +313,17 @@ function App() {
     setShowBye(false)
     setShowSpectator(false)
     setShowChampion(false)
-  }
+  }, [onlineSession, showBye])
 
-  const handleChampion = () => {
+  const handleChampion = useCallback(() => {
     setShowChampion(true)
     setMatchSession(null)
     resetOnlineScreens()
-    setShowChampion(true)
-  }
+  }, [resetOnlineScreens])
 
-  const handleBackFromBye = () => {
+  const handleBackFromBye = useCallback(() => {
     setShowBye(false)
-  }
+  }, [])
 
   const handleLeaveMatch = useCallback(() => {
     setMatchSession(null)
