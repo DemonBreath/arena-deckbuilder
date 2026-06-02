@@ -337,7 +337,7 @@ function beginPlayerTurn(state: GameState): GameState {
       `${getPlayerPassive(identity).name} (+${openingBonus} opening energy).`,
     )
   }
-  const passiveLog = formatClassPassiveLog(identity)
+  const passiveLog = formatClassPassiveLog(identity, turnNumber)
   if (passiveLog) {
     next = appendLog(next, passiveLog)
   }

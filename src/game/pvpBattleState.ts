@@ -4,7 +4,7 @@ import {
   cardCountsAsAttack,
   cardCountsAsStrike,
 } from './cardEffects'
-import { getAllClassCardIds } from './classCardPools'
+import { CLASS_CARD_POOLS, getAllClassCardIds } from './classCardPools'
 import {
   applyClassPostCardEffects,
   formatClassPassiveLog,
@@ -414,6 +414,73 @@ function drawCardsForPlayer(
   return { ...player, drawPile, discardPile, hand }
 }
 
+function classIdentityCardIds(classId: ClassId): CardId[] {
+  const pool = CLASS_CARD_POOLS[classId]
+  return [...pool.signatureCards, ...pool.classCards]
+}
+
+function handHasOpeningPressure(hand: CardId[], classId: ClassId): boolean {
+  const identityCards = classIdentityCardIds(classId)
+  return hand.some(
+    (id) => cardCountsAsAttack(id) || identityCards.includes(id),
+  )
+}
+
+function isPureGuardCard(cardId: CardId): boolean {
+  return cardId === 'guard' || cardId === 'guard_plus'
+}
+
+/** M33 — avoid turn-1 hands that are only Guards with no class identity visible. */
+function ensureOpeningHandPressure(
+  player: PvpPlayerBattleState,
+): PvpPlayerBattleState {
+  if (handHasOpeningPressure(player.hand, player.classId)) {
+    return player
+  }
+
+  const identityCards = classIdentityCardIds(player.classId)
+  const wantsCard = (cardId: CardId) =>
+    cardCountsAsAttack(cardId) || identityCards.includes(cardId)
+
+  let drawPile = [...player.drawPile]
+  let discardPile = [...player.discardPile]
+  const hand = [...player.hand]
+
+  const pullFromReserve = (): CardId | null => {
+    for (let i = 0; i < drawPile.length; i += 1) {
+      if (wantsCard(drawPile[i])) {
+        return drawPile.splice(i, 1)[0] ?? null
+      }
+    }
+    for (let i = 0; i < discardPile.length; i += 1) {
+      if (wantsCard(discardPile[i])) {
+        return discardPile.splice(i, 1)[0] ?? null
+      }
+    }
+    return null
+  }
+
+  const incoming = pullFromReserve()
+  if (!incoming) {
+    return { ...player, drawPile, discardPile, hand }
+  }
+
+  const guardIndex = hand.findIndex(isPureGuardCard)
+  if (guardIndex >= 0) {
+    const outgoing = hand[guardIndex]
+    hand[guardIndex] = incoming
+    discardPile.push(outgoing)
+  } else if (hand.length > 0) {
+    const outgoing = hand.pop()!
+    hand.push(incoming)
+    discardPile.push(outgoing)
+  } else {
+    hand.push(incoming)
+  }
+
+  return { ...player, drawPile, discardPile, hand }
+}
+
 function beginTurn(state: PvpBattleState, slot: PlayerSlot): PvpBattleState {
   const player = normalizeCombatantPlayer(getPlayer(state, slot))
   const turnNumber = player.turnsTaken + 1
@@ -452,7 +519,10 @@ function beginTurn(state: PvpBattleState, slot: PlayerSlot): PvpBattleState {
   if (turnNumber === 1 && draftFx && draftFx.turnOneExtraCards > 0) {
     handSize += draftFx.turnOneExtraCards
   }
-  const drawn = drawCardsForPlayer(cleared, handSize)
+  let drawn = drawCardsForPlayer(cleared, handSize)
+  if (turnNumber === 1) {
+    drawn = ensureOpeningHandPressure(drawn)
+  }
   let next = setPlayer(state, slot, drawn)
   if (openingBonus > 0) {
     next = appendLog(
@@ -460,7 +530,7 @@ function beginTurn(state: PvpBattleState, slot: PlayerSlot): PvpBattleState {
       `${player.championName} — Borrowed Moment (+${openingBonus} opening energy).`,
     )
   }
-  const passiveLog = formatClassPassiveLog(identity)
+  const passiveLog = formatClassPassiveLog(identity, turnNumber)
   if (passiveLog) {
     next = appendLog(next, `${player.championName} — ${passiveLog}`)
   }

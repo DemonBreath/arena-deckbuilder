@@ -243,11 +243,84 @@ export function shouldIncrementAttackCounter(cardId: CardId): boolean {
   return isAttackCard(cardId)
 }
 
-export function formatClassPassiveLog(identity: PlayerClassIdentity): string | null {
+/** Battle log line at turn start — surfaces passives beyond block-only tanks. */
+export function formatClassPassiveLog(
+  identity: PlayerClassIdentity,
+  turnNumber: number,
+): string | null {
+  const name = getPlayerPassive(identity).name
+  const kind = getPlayerPassiveKind(identity)
   const block = getClassTurnStartBlock(identity)
-  if (block > 0) {
-    const name = getPlayerPassive(identity).name
-    return `${name} (+${block} block).`
+  const firstTurnBlock = getClassFirstTurnBlockBonus(identity, turnNumber)
+
+  if (turnNumber === 1) {
+    if (
+      kind === 'opening_tempo' ||
+      kind === 'chrono_tempo' ||
+      kind === 'paradox_tempo'
+    ) {
+      const bonus = getClassOpeningEnergyBonus(identity, turnNumber)
+      if (bonus > 0) {
+        return `${name} — +${bonus} energy on your first turn.`
+      }
+    }
+    if (kind === 'chef_prep' && firstTurnBlock > 0) {
+      return `${name} — +${firstTurnBlock} block on your first turn.`
+    }
+    if (kind === 'bloodlust') {
+      return `${name} — Strikes and Heavy Strikes deal +2 damage.`
+    }
+    if (kind === 'combo_shot') {
+      return `${name} — Your second Strike each turn deals +2 damage.`
+    }
+    if (kind === 'burn_touch' || kind === 'infernal_scorch') {
+      return `${name} — Attack cards deal bonus damage.`
+    }
+    if (kind === 'assassin_burst' || kind === 'assassin_healthy' || kind === 'deadeye_opening' || kind === 'shadow_opening') {
+      return `${name} — Your first attack each turn hits harder.`
+    }
+    if (kind === 'vampire_lifesteal' || kind === 'bloodlord_siphon' || kind === 'nightstalker') {
+      return `${name} — Attacks that deal damage can restore HP.`
+    }
+    if (kind === 'life_drain' || kind === 'lich_drain') {
+      return `${name} — Playing Guard can restore HP.`
+    }
+    if (kind === 'paladin_aegis' || kind === 'templar_aegis') {
+      return `${name} — Guards can restore HP; +${block} block this turn.`
+    }
+    if (kind === 'merchant_barter' || kind === 'tycoon_barter') {
+      return `${name} — Extra starting gold and shop discounts (see lobby gold).`
+    }
+    if (kind === 'pirate_plunder') {
+      return `${name} — Bonus gold on victories.`
+    }
+    if (kind === 'gambler_lucky') {
+      return `${name} — Attacks gain random bonus damage.`
+    }
+    if (kind === 'monk_flow') {
+      return `${name} — Second and later attacks each turn deal +1 damage.`
+    }
+    if (kind === 'dragon_knight_siege' || kind === 'warlord_endurance' || kind === 'juggernaut_brute') {
+      return `${name} — Attack damage grows as the fight continues.`
+    }
+    if (kind === 'bard_improv' || kind === 'timekeeper_draw') {
+      return `${name} — You draw 6 cards each turn.`
+    }
+    if (kind === 'engineer_overclock') {
+      return `${name} — Even-numbered turns grant +1 energy.`
+    }
+    if (kind === 'alchemist_potion' || kind === 'mutagenist_brew') {
+      return `${name} — Even hand-slot attacks deal bonus damage.`
+    }
   }
+
+  if (block > 0) {
+    return `${name} (+${block} block this turn).`
+  }
+
+  if (turnNumber === 1 && kind === 'fortify') {
+    return `${name} — High HP; +${block} block each turn.`
+  }
+
   return null
 }
