@@ -232,6 +232,7 @@ export function PvpCombatView({
                     <CardButton
                       key={`${cardId}-${index}`}
                       cardId={cardId}
+                      handIndex={index}
                       viewerClassId={view.me.classId}
                       disabled={disabled}
                       className={highlighted ? 'card-button--played' : undefined}
@@ -246,6 +247,7 @@ export function PvpCombatView({
           <button
             type="button"
             className="primary-button primary-button--large"
+            data-testid="end-turn-button"
             onClick={onEndTurn}
             disabled={!battleActive || !view.isMyTurn || actionPending}
           >

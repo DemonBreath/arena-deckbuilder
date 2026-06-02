@@ -18,6 +18,8 @@ interface CardButtonProps {
   className?: string
   /** Viewer's class — highlights own class cards vs other classes. */
   viewerClassId?: ClassId
+  /** Hand index for e2e targeting in PvP. */
+  handIndex?: number
 }
 
 export function CardButton({
@@ -29,6 +31,7 @@ export function CardButton({
   price,
   className,
   viewerClassId,
+  handIndex,
 }: CardButtonProps) {
   const card = getCard(cardId)
   const displayPrice = price ?? card.shopPrice
@@ -49,6 +52,9 @@ export function CardButton({
     <button
       type="button"
       className={`card-button card-button--${variant}${extraClass}`}
+      data-testid="card-button"
+      data-hand-index={handIndex}
+      data-card-id={cardId}
       disabled={disabled}
       onClick={onClick}
       title={tooltip}

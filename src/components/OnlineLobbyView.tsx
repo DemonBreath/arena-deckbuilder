@@ -135,7 +135,7 @@ export function OnlineLobbyView({
 
   return (
 
-    <section className="screen online-lobby-screen">
+    <section className="screen online-lobby-screen" data-testid="online-lobby-screen">
 
       <ConnectionStatusBanner status={connectionStatus} />
 
@@ -255,6 +255,8 @@ export function OnlineLobbyView({
 
             className={`primary-button ${isReady ? 'primary-button--outline' : ''}`}
 
+            data-testid="ready-button"
+
             onClick={toggleReady}
 
             disabled={actionPending}
@@ -276,6 +278,8 @@ export function OnlineLobbyView({
             type="button"
 
             className="primary-button"
+
+            data-testid="start-match-button"
 
             onClick={startRound}
 

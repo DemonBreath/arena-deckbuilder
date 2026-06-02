@@ -50,6 +50,8 @@ function ClassPickerCard({
     <button
       type="button"
       className={`class-picker-card ${selected ? 'class-picker-card--selected' : ''}`}
+      data-testid="class-card"
+      data-class-id={definition.id}
       onClick={onSelect}
       aria-pressed={selected}
     >
@@ -359,7 +361,12 @@ export function ClassSelectionScreen({
         <button type="button" className="secondary-button" onClick={onBack}>
           Back
         </button>
-        <button type="button" className="primary-button" onClick={onConfirm}>
+        <button
+          type="button"
+          className="primary-button"
+          data-testid="class-confirm-button"
+          onClick={onConfirm}
+        >
           {confirmLabel} as {selected.name}
         </button>
       </div>

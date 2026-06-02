@@ -149,7 +149,7 @@ export function MatchRoomView({
 
   if (bothConnected && match?.battleState && battleViewError) {
     return (
-      <section className="screen match-room-screen">
+      <section className="screen match-room-screen" data-testid="match-room-screen">
         <ConnectionStatusBanner status={realtimeStatus} />
         {runStatus && <PvpRunStatusHeader status={runStatus} title="Match Room" />}
         <OnlineErrorPanel
@@ -163,7 +163,7 @@ export function MatchRoomView({
   }
 
   return (
-    <section className="screen match-room-screen">
+    <section className="screen match-room-screen" data-testid="match-room-screen">
       <ConnectionStatusBanner status={realtimeStatus} />
       {runStatus && <PvpRunStatusHeader status={runStatus} title="Match Room" />}
 

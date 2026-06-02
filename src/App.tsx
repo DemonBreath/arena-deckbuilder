@@ -723,6 +723,7 @@ function App() {
             <input
               type="text"
               className="champion-name-input"
+              data-testid="champion-name-input"
               placeholder="Enter your champion name"
               value={state.championName}
               maxLength={20}
@@ -760,6 +761,7 @@ function App() {
                 <input
                   type="text"
                   className="champion-name-input lobby-code-input"
+                  data-testid="lobby-code-input"
                   placeholder="e.g. ARENA01"
                   value={lobbyCode}
                   maxLength={8}
@@ -777,6 +779,7 @@ function App() {
               <button
                 type="button"
                 className="primary-button"
+                data-testid="join-lobby-button"
                 disabled={!canJoinLobby}
                 onClick={() => openClassSelection('join')}
               >

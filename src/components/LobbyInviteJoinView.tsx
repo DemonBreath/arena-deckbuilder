@@ -128,6 +128,7 @@ export function LobbyInviteJoinView({
             <input
               type="text"
               className="champion-name-input"
+              data-testid="champion-name-input"
               placeholder="Enter your champion name"
               value={championName}
               maxLength={20}
@@ -140,6 +141,7 @@ export function LobbyInviteJoinView({
           <button
             type="button"
             className="primary-button"
+            data-testid="join-lobby-button"
             disabled={!canJoin || joining || rejoining}
             onClick={onJoin}
           >
