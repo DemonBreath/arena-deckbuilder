@@ -99,7 +99,7 @@ export type Screen =
 
 export type RewardType = 'cards' | 'relics' | 'none'
 
-export const PLAYER_MAX_HP = 30
+export const PLAYER_MAX_HP = 55
 export const STARTING_LIVES = 3
 const MAX_LOG_ENTRIES = 80
 
@@ -159,7 +159,7 @@ export const INITIAL_STATE: GameState = {
   attacksPlayedThisTurn: 0,
   currentArenaContestantId: null,
   playerHp: PLAYER_MAX_HP,
-  enemyHp: 30,
+  enemyHp: 55,
   enemyBlock: 0,
   opponentId: 'bruiser',
   turtlePhase: 'defend',

@@ -53,12 +53,12 @@ const PHASE_CONFIG: Record<ArenaPhase, ArenaPhaseConfig> = {
     label: 'Sudden Death — Level 1',
     shortLabel: 'Sudden Death I',
     description:
-      'The arena tightens — every fighter starts each match with 5 less HP.',
-    startingHpPenalty: 5,
+      'The arena tightens — every fighter starts each match with 2 less HP.',
+    startingHpPenalty: 2,
     matchTimeoutMs: MATCH_TIMEOUT_NORMAL_MS,
     turnDurationMs: TURN_DURATION_NORMAL_MS,
     warningMessage:
-      'Sudden Death Level 1 — all players start matches with −5 HP.',
+      'Sudden Death Level 1 — all players start matches with −2 HP.',
     severity: 'low',
   },
   sudden_death_2: {
@@ -66,12 +66,12 @@ const PHASE_CONFIG: Record<ArenaPhase, ArenaPhaseConfig> = {
     label: 'Sudden Death — Level 2',
     shortLabel: 'Sudden Death II',
     description:
-      'Maximum pressure — −10 HP at match start and shorter match timers.',
-    startingHpPenalty: 10,
+      'Maximum pressure — −5 HP at match start and shorter match timers.',
+    startingHpPenalty: 5,
     matchTimeoutMs: MATCH_TIMEOUT_SD2_MS,
     turnDurationMs: TURN_DURATION_SD2_MS,
     warningMessage:
-      'Sudden Death Level 2 — −10 HP at match start and reduced timers.',
+      'Sudden Death Level 2 — −5 HP at match start and reduced timers.',
     severity: 'high',
   },
   final_duel: {
@@ -80,7 +80,7 @@ const PHASE_CONFIG: Record<ArenaPhase, ArenaPhaseConfig> = {
     shortLabel: 'Final Duel',
     description:
       'Best-of-3 series — first to 2 match wins is crowned Champion.',
-    startingHpPenalty: 10,
+    startingHpPenalty: 3,
     matchTimeoutMs: MATCH_TIMEOUT_FINAL_MS,
     turnDurationMs: TURN_DURATION_FINAL_MS,
     warningMessage:

@@ -111,17 +111,17 @@ export function resolveCardEffect(input: CardEffectInput): CardEffectResult {
     }
 
     case 'double_guard': {
-      const gained = 10
+      const gained = 14
       return {
         ...result,
         playerBlock: input.playerBlock + gained,
         blockGained: gained,
-        logLine: `Played ${card.name} — gained ${gained} block (5 + 5).`,
+        logLine: `Played ${card.name} — gained ${gained} block (7 + 7).`,
       }
     }
 
     case 'stonewall': {
-      const gained = 12
+      const gained = 14
       return {
         ...result,
         playerBlock: input.playerBlock + gained,
@@ -338,7 +338,7 @@ export function resolveCardEffect(input: CardEffectInput): CardEffectResult {
     }
 
     case 'ambush': {
-      const hit = dealDamage(input, 9, attackBonus)
+      const hit = dealDamage(input, 7, attackBonus)
       return {
         ...result,
         ...hit,
@@ -356,7 +356,7 @@ export function resolveCardEffect(input: CardEffectInput): CardEffectResult {
     }
 
     case 'death_mark': {
-      const hit = dealDamage(input, 12, attackBonus)
+      const hit = dealDamage(input, 10, attackBonus)
       return {
         ...result,
         ...hit,

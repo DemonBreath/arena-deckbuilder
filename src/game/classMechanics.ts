@@ -51,7 +51,7 @@ const MECHANIC_META: Record<
   },
   combo: {
     name: 'Combo',
-    hint: 'Gain on Strikes (+1). At 3+, Strikes deal +2 damage.',
+    hint: 'Gain on Strikes (+1). At 3+, Strikes deal +1 damage.',
     max: 6,
     thresholdAt: 3,
   },
@@ -270,8 +270,8 @@ export function getMechanicCombatModifiers(
       break
     case 'gunslinger':
       if (ctx.isStrike && v >= 3) {
-        bonusDamage = 2
-        parts.push('+2 Combo')
+        bonusDamage = 1
+        parts.push('+1 Combo')
       }
       break
     case 'necromancer':

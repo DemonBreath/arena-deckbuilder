@@ -478,7 +478,7 @@ export const CLASS_REGISTRY: readonly ClassDefinition[] = [
     passive: {
       id: 'bloodlust',
       name: 'Bloodlust',
-      description: 'Lower Max HP. Strike and Heavy Strike deal +2 damage.',
+      description: 'Lower Max HP. Strike and Heavy Strike deal +1 damage.',
     },
     passiveKind: 'bloodlust',
     stats: {

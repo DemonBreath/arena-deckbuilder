@@ -31,8 +31,8 @@ export const OPPONENT_DATABASE: Record<OpponentId, OpponentDefinition> = {
   thief: {
     id: 'thief',
     name: 'Thief',
-    maxHp: 30,
-    description: '30 HP — attacks for 6, steals 5 gold if unblocked',
+    maxHp: 55,
+    description: '55 HP — attacks for 5, steals 5 gold if unblocked',
   },
 }
 

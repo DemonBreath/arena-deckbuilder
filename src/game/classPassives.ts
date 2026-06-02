@@ -128,28 +128,28 @@ export function getClassBonusDamage(ctx: ClassDamageBonusContext): number {
     case 'executioner_slain':
       return ctx.cardId === 'strike' || ctx.cardId === 'heavy_strike'
         ? kind === 'executioner_slain'
-          ? 3
-          : 2
+          ? 2
+          : 1
         : 0
     case 'combo_shot':
-      return isStrikeCard(ctx.cardId) && ctx.strikesPlayedThisTurn > 0 ? 2 : 0
+      return isStrikeCard(ctx.cardId) && ctx.strikesPlayedThisTurn > 0 ? 1 : 0
     case 'burn_touch':
       return isAttackCard(ctx.cardId) ? 1 : 0
     case 'infernal_scorch':
-      return isAttackCard(ctx.cardId) ? 2 : 0
+      return isAttackCard(ctx.cardId) ? 1 : 0
     case 'assassin_burst':
     case 'deadeye_opening':
     case 'shadow_opening':
       return isAttackCard(ctx.cardId) && ctx.attacksPlayedThisTurn === 0
         ? kind === 'shadow_opening'
-          ? 4
+          ? 3
           : kind === 'deadeye_opening'
-            ? 3
-            : 2
+            ? 2
+            : 1
         : 0
     case 'assassin_healthy': {
       if (!isAttackCard(ctx.cardId) || ctx.attacksPlayedThisTurn !== 0) return 0
-      let bonus = 2
+      let bonus = 1
       if (
         ctx.defenderHp !== undefined &&
         ctx.defenderMaxHp !== undefined &&
@@ -268,10 +268,10 @@ export function formatClassPassiveLog(
       return `${name} — +${firstTurnBlock} block on your first turn.`
     }
     if (kind === 'bloodlust') {
-      return `${name} — Strikes and Heavy Strikes deal +2 damage.`
+      return `${name} — Strikes and Heavy Strikes deal +1 damage.`
     }
     if (kind === 'combo_shot') {
-      return `${name} — Your second Strike each turn deals +2 damage.`
+      return `${name} — Your second Strike each turn deals +1 damage.`
     }
     if (kind === 'burn_touch' || kind === 'infernal_scorch') {
       return `${name} — Attack cards deal bonus damage.`

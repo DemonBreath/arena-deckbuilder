@@ -60,7 +60,8 @@ import type {
 } from './cardEffects'
 import type { ClassMechanicMeter } from '../types/classMechanic'
 
-export const PVP_MAX_HP = 30
+/** Baseline HP — tuned for ~3+ turns per player in a full-energy aggro line (M34 pace). */
+export const PVP_MAX_HP = 55
 export const PVP_STARTING_ENERGY = 3
 export const PVP_HAND_SIZE = 5
 const MAX_LOG_ENTRIES = 80

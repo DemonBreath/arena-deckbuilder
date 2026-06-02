@@ -127,7 +127,7 @@ export function resolveSignatureMechanicCard(
     case 'guardian_shield_crush': {
       const spendRes = spend(meter, 3)
       meter = spendRes.meter
-      const dmg = spendRes.spent >= 3 ? 8 : 5
+      const dmg = spendRes.spent >= 3 ? 7 : 4
       const hit = deal(input, dmg)
       return {
         ...result,
@@ -161,7 +161,7 @@ export function resolveSignatureMechanicCard(
     }
 
     case 'berserker_blood_strike': {
-      const hit = deal(input, 4 + meter.value)
+      const hit = deal(input, 3 + meter.value)
       return {
         ...result,
         ...hit,
@@ -171,7 +171,7 @@ export function resolveSignatureMechanicCard(
 
     case 'berserker_reckless_charge': {
       meter = gain(meter, 2)
-      const hit = deal(input, 6)
+      const hit = deal(input, 5)
       return {
         ...result,
         ...hit,

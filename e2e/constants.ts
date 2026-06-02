@@ -17,11 +17,11 @@ export const PLAYER_B = {
   classId: 'berserker',
 } as const
 
-/** Smoke test: entire spec should finish under ~60s. */
-export const SMOKE_TEST_TIMEOUT_MS = 60 * 1000
+/** Smoke test: entire spec should finish under ~2 min (longer fights after M34 pace pass). */
+export const SMOKE_TEST_TIMEOUT_MS = 120 * 1000
 
 /** Smoke: one Final Duel game then exit at post-match. */
-export const SMOKE_COMBAT_TIMEOUT_MS = 45 * 1000
+export const SMOKE_COMBAT_TIMEOUT_MS = 90 * 1000
 
 /** Full Final Duel best-of-3 series (up to 3 games + shop between). */
 export const FINAL_DUEL_TEST_TIMEOUT_MS = 15 * 60 * 1000
